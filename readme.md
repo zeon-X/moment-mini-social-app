@@ -1,7 +1,7 @@
 # Moment Mini Social Media App
 
 <!-- Logo Placeholder -->
-<p align="center">
+<p align="left">
   <img src="./app/assets/images/icon.png" alt="Moment App Logo" width="120"/>
 </p>
 
