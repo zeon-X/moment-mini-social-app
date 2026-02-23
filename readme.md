@@ -99,19 +99,18 @@ Download the latest Android APK:
 
 ## Screenshots
 
-<p align="center">
-  <img src="./assets/images/screenshot1.png" alt="Screenshot 1" width="30%"/>
-  <img src="./assets/images/screenshot2.png" alt="Screenshot 2" width="30%"/>
-  <img src="./assets/images/screenshot3.png" alt="Screenshot 3" width="30%"/>
-</p>
-
-![push-notification](https://github.com/user-attachments/assets/f003c1af-d204-4354-92e5-abe232fca21b)
-![profile](https://github.com/user-attachments/assets/8166c1d4-9c70-4a9a-850f-727bbd07907c)
-![notification](https://github.com/user-attachments/assets/f16cdea6-e1c7-4f67-a673-d123a5993115)
-![feed](https://github.com/user-attachments/assets/7c9a582f-8608-40af-92e0-132e0c01954b)
-![create-post](https://github.com/user-attachments/assets/4abd783d-66eb-466f-a9e6-d98d7636c5b9)
-![community](https://github.com/user-attachments/assets/d363b0f1-6807-4c4d-ab61-f6026062b2a7)
-
+<table>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/f003c1af-d204-4354-92e5-abe232fca21b" alt="push-notification" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/8166c1d4-9c70-4a9a-850f-727bbd07907c" alt="profile" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/f16cdea6-e1c7-4f67-a673-d123a5993115" alt="notification" width="100%"/></td>
+  </tr>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/7c9a582f-8608-40af-92e0-132e0c01954b" alt="feed" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/4abd783d-66eb-466f-a9e6-d98d7636c5b9" alt="create-post" width="100%"/></td>
+    <td><img src="https://github.com/user-attachments/assets/d363b0f1-6807-4c4d-ab61-f6026062b2a7" alt="community" width="100%"/></td>
+  </tr>
+</table>
 
 ---
 
