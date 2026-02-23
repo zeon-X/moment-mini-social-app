@@ -2,7 +2,7 @@
 
 <!-- Logo Placeholder -->
 <p align="left">
-  <img src="./app/assets/images/text-icon.png" alt="Moment App Logo" width="240"/>
+  <img src="./app/assets/images/text-logo.png" alt="Moment App Logo" width="240"/>
 </p>
 
 ## Overview
