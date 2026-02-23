@@ -1,0 +1,1 @@
+export const globalLogout = { handler: null as null | (() => void) };
