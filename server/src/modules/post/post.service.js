@@ -1,5 +1,7 @@
 import { NotificationType } from "@prisma/client";
 import { prisma } from "../../config/prisma.js";
+import { ApiError } from "../../utils/ApiError.js";
+import { getPaginationMeta } from "../../utils/pagination.js";
 import {
   createNotification,
   getUnreadCount,
@@ -15,12 +17,26 @@ export const createPost = async (userId, content) => {
   });
 };
 
-export const getGlobalFeed = async (currentUserId, page = 1, limit = 10) => {
+export const getGlobalFeed = async (
+  currentUserId,
+  { page = 1, limit = 10, search = "" } = {},
+) => {
   const skip = (page - 1) * limit;
+  const where = search
+    ? {
+        author: {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { username: { contains: search, mode: "insensitive" } },
+          ],
+        },
+      }
+    : undefined;
 
   const posts = await prisma.post.findMany({
+    where,
     skip,
-    take: limit,
+    take: limit + 1,
     orderBy: { createdAt: "desc" },
     include: {
       author: {
@@ -45,7 +61,8 @@ export const getGlobalFeed = async (currentUserId, page = 1, limit = 10) => {
     },
   });
 
-  return posts.map((post) => ({
+  const hasMore = posts.length > limit;
+  const items = posts.slice(0, limit).map((post) => ({
     id: post.id,
     author: post.author.name,
     username: post.author.username,
@@ -61,6 +78,16 @@ export const getGlobalFeed = async (currentUserId, page = 1, limit = 10) => {
       createdAt: comment.createdAt,
     })),
   }));
+
+  return {
+    items,
+    pagination: getPaginationMeta({
+      page,
+      limit,
+      hasMore,
+      itemCount: items.length,
+    }),
+  };
 };
 
 export const toggleLike = async (userId, postId) => {

@@ -1,12 +1,19 @@
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { getPaginationParams } from "../../utils/pagination.js";
 import * as notificationService from "./notification.service.js";
 
 export const getUserNotifications = asyncHandler(async (req, res) => {
-  const notifications = await notificationService.getNotifications(req.user.id);
+  const { page, limit } = getPaginationParams(req.query);
+
+  const notifications = await notificationService.getNotifications(req.user.id, {
+    page,
+    limit,
+  });
 
   res.status(200).json({
     success: true,
-    data: notifications,
+    data: notifications.items,
+    pagination: notifications.pagination,
   });
 });
 

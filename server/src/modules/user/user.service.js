@@ -1,5 +1,6 @@
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { getPaginationMeta } from "../../utils/pagination.js";
 
 export const getUserProfile = async (username, currentUserId) => {
   const user = await prisma.user.findUnique({
@@ -72,12 +73,12 @@ export const getUserProfile = async (username, currentUserId) => {
   };
 };
 
-export const getAllUsers = async (page = 1, limit = 10) => {
+export const getAllUsers = async ({ page = 1, limit = 10 } = {}) => {
   const skip = (page - 1) * limit;
 
   const users = await prisma.user.findMany({
     skip,
-    take: limit,
+    take: limit + 1,
     orderBy: { createdAt: "desc" },
     include: {
       _count: {
@@ -86,11 +87,22 @@ export const getAllUsers = async (page = 1, limit = 10) => {
     },
   });
 
-  return users.map((user) => ({
+  const hasMore = users.length > limit;
+  const items = users.slice(0, limit).map((user) => ({
     id: user.id,
     name: user.name,
     username: user.username,
     age: user.age,
     posts: user._count.posts,
   }));
+
+  return {
+    items,
+    pagination: getPaginationMeta({
+      page,
+      limit,
+      hasMore,
+      itemCount: items.length,
+    }),
+  };
 };

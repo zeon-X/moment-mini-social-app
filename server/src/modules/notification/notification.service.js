@@ -2,6 +2,7 @@ import { firebaseAdmin } from "../../config/firebase.js";
 import { prisma } from "../../config/prisma.js";
 import { emitToUser } from "../../socket/emitter.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { getPaginationMeta } from "../../utils/pagination.js";
 
 export const formatNotification = (notification) => ({
   id: notification.id,
@@ -57,9 +58,13 @@ export const createNotification = async ({
   return formattedNotification;
 };
 
-export const getNotifications = async (userId) => {
+export const getNotifications = async (userId, { page = 1, limit = 10 } = {}) => {
+  const skip = (page - 1) * limit;
+
   const notifications = await prisma.notification.findMany({
     where: { recipientId: userId },
+    skip,
+    take: limit + 1,
     include: {
       sender: {
         select: {
@@ -78,7 +83,18 @@ export const getNotifications = async (userId) => {
     },
   });
 
-  return notifications.map(formatNotification);
+  const hasMore = notifications.length > limit;
+  const items = notifications.slice(0, limit).map(formatNotification);
+
+  return {
+    items,
+    pagination: getPaginationMeta({
+      page,
+      limit,
+      hasMore,
+      itemCount: items.length,
+    }),
+  };
 };
 
 export const markAsRead = async (notificationId, userId) => {
