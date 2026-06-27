@@ -2,41 +2,29 @@ import { ScreenLayout } from "@/components/screen-layout";
 import { ThemedText } from "@/components/themed-text";
 import LoadingText from "@/components/ui/loading-text";
 import { NotificationCard } from "@/components/ui/notification-card";
-import {
-  getUserNotifications,
-  markNotificationAsRead,
-} from "@/services/modules/notification.service";
-import { Notification } from "@/types/notification";
+import { useNotifications } from "@/context/notification-context";
 import { useFocusEffect } from "@react-navigation/native";
-import React, { useState } from "react";
+import React from "react";
 import { View } from "react-native";
 
 const NotificationTabScreen = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    error,
+    refreshNotifications,
+    markAsRead,
+  } = useNotifications();
 
   useFocusEffect(
     React.useCallback(() => {
-      handleRefresh();
-    }, []),
+      refreshNotifications();
+    }, [refreshNotifications]),
   );
 
-  const handleRefresh = async () => {
-    setIsLoading(true);
-    // TODO: Fetch new notifications from API
-    await getUserNotifications().then((data) => {
-      setNotifications(data.data);
-    });
-    setIsLoading(false);
-  };
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
   const handleNotificationPress = async (notificationId: string) => {
-    await markNotificationAsRead(notificationId);
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)),
-    );
+    await markAsRead(notificationId);
   };
 
   return (
@@ -52,11 +40,17 @@ const NotificationTabScreen = () => {
         )
       }
       contentClassName="px-4 py-4 pb-8"
-      onRefresh={handleRefresh}
+      onRefresh={refreshNotifications}
     >
       {/* Notifications List */}
-      {notifications.length === 0 && isLoading ? (
+      {notifications.length === 0 && loading ? (
         <LoadingText message="Loading notifications..." />
+      ) : error ? (
+        <View className="items-center justify-center py-12">
+          <ThemedText type="small" className="text-red-500 text-center">
+            {error}
+          </ThemedText>
+        </View>
       ) : notifications.length > 0 ? (
         notifications.map((notification) => (
           <NotificationCard

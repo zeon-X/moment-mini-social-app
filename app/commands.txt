@@ -1,0 +1,15 @@
+# Clean and run iOS simulator
+npx expo start --clear && \
+npx expo prebuild --clean && \
+npx expo run:ios --no-build-cache
+eas build --platform ios --profile development
+
+preview builds
+eas build --platform android --profile preview
+eas submit -p ios
+
+with auto submit
+eas build --platform ios --auto-submit
+
+
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer

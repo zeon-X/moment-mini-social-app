@@ -11,11 +11,15 @@ export const getUserNotifications = asyncHandler(async (req, res) => {
 });
 
 export const readNotification = asyncHandler(async (req, res) => {
-  await notificationService.markAsRead(req.params.id, req.user.id);
+  const result = await notificationService.markAsRead(
+    req.params.id,
+    req.user.id,
+  );
 
   res.status(200).json({
     success: true,
     message: "Notification marked as read",
+    unreadCount: result.unreadCount,
   });
 });
 

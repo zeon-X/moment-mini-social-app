@@ -1,5 +1,19 @@
 import { firebaseAdmin } from "../../config/firebase.js";
 import { prisma } from "../../config/prisma.js";
+import { emitToUser } from "../../socket/emitter.js";
+import { ApiError } from "../../utils/ApiError.js";
+
+export const formatNotification = (notification) => ({
+  id: notification.id,
+  type: notification.type.toLowerCase(),
+  user: {
+    name: notification.sender.name,
+    username: notification.sender.username,
+  },
+  postPreview: notification.post?.content?.slice(0, 50) || "",
+  timestamp: notification.createdAt,
+  read: notification.read,
+});
 
 export const createNotification = async ({
   type,
@@ -10,14 +24,37 @@ export const createNotification = async ({
   // Do not notify yourself
   if (recipientId === senderId) return;
 
-  return prisma.notification.create({
+  const notification = await prisma.notification.create({
     data: {
       type,
       recipientId,
       senderId,
       postId,
     },
+    include: {
+      sender: {
+        select: {
+          name: true,
+          username: true,
+        },
+      },
+      post: {
+        select: {
+          content: true,
+        },
+      },
+    },
   });
+
+  const unreadCount = await getUnreadCount(recipientId);
+  const formattedNotification = formatNotification(notification);
+
+  emitToUser(recipientId, "notification:new", {
+    notification: formattedNotification,
+    unreadCount,
+  });
+
+  return formattedNotification;
 };
 
 export const getNotifications = async (userId) => {
@@ -41,27 +78,33 @@ export const getNotifications = async (userId) => {
     },
   });
 
-  return notifications.map((n) => ({
-    id: n.id,
-    type: n.type.toLowerCase(),
-    user: {
-      name: n.sender.name,
-      username: n.sender.username,
-    },
-    postPreview: n.post?.content?.slice(0, 50) || "",
-    timestamp: n.createdAt,
-    read: n.read,
-  }));
+  return notifications.map(formatNotification);
 };
 
 export const markAsRead = async (notificationId, userId) => {
-  return prisma.notification.updateMany({
+  const result = await prisma.notification.updateMany({
     where: {
       id: notificationId,
       recipientId: userId,
     },
     data: { read: true },
   });
+
+  if (result.count === 0) {
+    throw new ApiError(404, "Notification not found");
+  }
+
+  const unreadCount = await getUnreadCount(userId);
+
+  emitToUser(userId, "notification:read", {
+    notificationId,
+    unreadCount,
+  });
+
+  return {
+    notificationId,
+    unreadCount,
+  };
 };
 
 export const getUnreadCount = async (userId) => {

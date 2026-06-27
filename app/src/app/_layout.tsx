@@ -14,6 +14,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "../context/auth-context";
+import { NotificationProvider } from "../context/notification-context";
 import SplashScreenController from "./splash";
 
 const RootLayout = () => {
@@ -30,14 +31,16 @@ const RootLayout = () => {
 
   return (
     <AuthProvider>
-      <SafeAreaProvider>
-        <ThemeProvider
-          value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
-        >
-          <StatusBar style="auto" />
-          <RootNavigator />
-        </ThemeProvider>
-      </SafeAreaProvider>
+      <NotificationProvider>
+        <SafeAreaProvider>
+          <ThemeProvider
+            value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+          >
+            <StatusBar style="auto" />
+            <RootNavigator />
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 };
