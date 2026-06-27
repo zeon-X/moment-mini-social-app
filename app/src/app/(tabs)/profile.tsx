@@ -10,6 +10,7 @@ import {
   toggleLikeOnPost,
 } from "@/services/modules/post.service";
 import { getUserDetails } from "@/services/modules/user.service";
+import { showErrorAlert } from "@/utils/error-handler";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
@@ -32,23 +33,30 @@ const ProfileTabScreen = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
 
+  const handleRefresh = React.useCallback(async () => {
+    if (!userInfo?.username) return;
+
+    setIsLoading(true);
+    try {
+      const data = await getUserDetails(userInfo.username);
+
+      if (data.success) {
+        setUser(data.data);
+      } else {
+        showErrorAlert(data.message, "Unable to load profile.");
+      }
+    } catch (error) {
+      showErrorAlert(error, "Unable to load profile.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userInfo?.username]);
+
   useFocusEffect(
     React.useCallback(() => {
       handleRefresh();
-    }, []),
+    }, [handleRefresh]),
   );
-
-  const handleRefresh = async () => {
-    setIsLoading(true);
-    // TODO: Fetch user data from API
-
-    await getUserDetails(userInfo?.username || "").then((data) => {
-      if (data.success) {
-        setUser(data.data);
-      }
-    });
-    setIsLoading(false);
-  };
 
   const handleLogout = async () => {
     const confirmed = await CrossConfirm({
@@ -60,53 +68,72 @@ const ProfileTabScreen = () => {
     });
     if (confirmed) {
       setIsLoggingOut(true);
-      await clearSession();
-      // Simulate logout
-      setTimeout(() => {
+      try {
+        await clearSession();
+      } catch (error) {
+        showErrorAlert(error, "Unable to logout.");
+      } finally {
         setIsLoggingOut(false);
-        // In a real app, this would navigate to auth screen
-        console.log("Logged out");
-      }, 500);
+      }
     }
   };
 
   const handleLike = async (postId: string) => {
-    await toggleLikeOnPost(postId);
+    try {
+      const data = await toggleLikeOnPost(postId);
 
-    setUser((prev) => ({
-      ...prev,
-      stats: {
-        ...prev.stats,
-        likes:
-          prev.stats?.likes +
-          (user?.posts.find((p) => p.id === postId)?.liked ? -1 : 1),
-      },
-      posts: prev.posts.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              liked: !post.liked,
-              likes: post.liked ? post.likes - 1 : post.likes + 1,
-            }
-          : post,
-      ),
-    }));
+      if (!data.success) {
+        showErrorAlert(data.message, "Unable to update like.");
+        return;
+      }
+
+      setUser((prev) => ({
+        ...prev,
+        stats: {
+          ...prev.stats,
+          likes:
+            prev.stats?.likes +
+            (user?.posts.find((p) => p.id === postId)?.liked ? -1 : 1),
+        },
+        posts: prev.posts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                liked: !post.liked,
+                likes: post.liked ? post.likes - 1 : post.likes + 1,
+              }
+            : post,
+        ),
+      }));
+    } catch (error) {
+      showErrorAlert(error, "Unable to update like.");
+    }
   };
 
   const handleAddComment = async (postId: string, comment: Comment) => {
-    await commentOnPost(postId, { content: comment.content.trim() });
-    setUser((prev) => ({
-      ...prev,
-      stats: {
-        ...prev.stats,
-        comments: prev.stats?.comments + 1,
-      },
-      posts: prev.posts.map((post) =>
-        post.id === postId
-          ? { ...post, comments: [...post.comments, comment] }
-          : post,
-      ),
-    }));
+    try {
+      const data = await commentOnPost(postId, { content: comment.content.trim() });
+
+      if (!data.success) {
+        showErrorAlert(data.message, "Unable to add comment.");
+        return;
+      }
+
+      setUser((prev) => ({
+        ...prev,
+        stats: {
+          ...prev.stats,
+          comments: prev.stats?.comments + 1,
+        },
+        posts: prev.posts.map((post) =>
+          post.id === postId
+            ? { ...post, comments: [...post.comments, comment] }
+            : post,
+        ),
+      }));
+    } catch (error) {
+      showErrorAlert(error, "Unable to add comment.");
+    }
   };
 
   const handleToggleComments = (postId: string) => {

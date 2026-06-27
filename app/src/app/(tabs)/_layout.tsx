@@ -10,6 +10,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { unreadCount } = useNotifications();
+  const notificationBadge = unreadCount > 99 ? "99+" : unreadCount;
 
   return (
     <Tabs
@@ -51,13 +52,17 @@ export default function TabLayout() {
         name="notifications"
         options={{
           title: "Notifications",
+          tabBarBadge: unreadCount > 0 ? notificationBadge : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: "#ef4444",
+            borderColor: "#ffffff",
+            borderWidth: 1.5,
+            color: "#ffffff",
+            fontSize: 10,
+            fontWeight: "700",
+          },
           tabBarIcon: ({ color }) => (
-            <IconSymbol
-              size={28}
-              name="bell.fill"
-              color={color}
-              count={unreadCount}
-            />
+            <IconSymbol size={28} name="bell.fill" color={color} />
           ),
         }}
       />

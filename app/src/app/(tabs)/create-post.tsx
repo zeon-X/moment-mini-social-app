@@ -4,6 +4,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { createPost } from "@/services/modules/post.service";
+import { showErrorAlert } from "@/utils/error-handler";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Text, TextInput, View } from "react-native";
@@ -24,22 +25,20 @@ const CreatePostTabScreen = () => {
     if (postText.trim().length === 0) return;
 
     setIsPosting(true);
-    // Simulate API call
+    try {
+      const data = await createPost({ content: postText });
 
-    await createPost({ content: postText }).then((data) => {
       if (data.success) {
-        // Post created successfully
-        // You can add the new post to a global state or trigger a refresh of the feed
-
         setPostText("");
-        setIsPosting(false);
         router.push("/"); // Navigate to the desired screen after posting
       } else {
-        setIsPosting(false);
-        // Handle error case
-        // You can show an error toast or alert here
+        showErrorAlert(data.message, "Unable to create post.");
       }
-    });
+    } catch (error) {
+      showErrorAlert(error, "Unable to create post.");
+    } finally {
+      setIsPosting(false);
+    }
   };
 
   const charCount = postText.length;

@@ -1,5 +1,6 @@
 import { getMe } from "@/services/modules/auth.service";
 import { UserInfo } from "@/types/user";
+import { showErrorAlert } from "@/utils/error-handler";
 import { globalLogout } from "@/utils/logout-handler";
 import {
   deleteFromSecureStore,
@@ -33,15 +34,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getFromSecureStore("token").then((storedToken) => {
-      setToken(storedToken);
-      setIsAuthenticated(!!storedToken);
-      handleFetchUserInfo();
+    const loadSession = async () => {
+      try {
+        const storedToken = await getFromSecureStore("token");
+        setToken(storedToken);
+        setIsAuthenticated(!!storedToken);
 
-      // maake a 5 sec delay to show the splash screen for a bit longer
-      // setTimeout(() => {}, 5000);
-      setLoading(false);
-    });
+        if (storedToken) {
+          await handleFetchUserInfo();
+        }
+      } catch (error) {
+        showErrorAlert(error, "Unable to restore your session.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadSession();
     globalLogout.handler = clearSession;
     return () => {
       globalLogout.handler = null;
@@ -61,15 +70,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const handleFetchUserInfo = async () => {
     setLoading(true);
-    // TODO: Fetch user data from API
-
-    await getMe().then((data) => {
+    try {
+      const data = await getMe();
       if (data.success) {
         setUser(data.data);
+      } else {
+        showErrorAlert(data.message, "Unable to load your profile.");
       }
-    });
-    setInterval(() => {}, 1000); // Refresh user info every 5 minutes
-    setLoading(false);
+    } catch (error) {
+      showErrorAlert(error, "Unable to load your profile.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Example: Save token to secure store on login
@@ -89,15 +101,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Example: Remove token from secure store on logout
   const clearSession = async () => {
-    // setLoading(true);
-    // Remove token from secure store
-    // You may want to use expo-secure-store's deleteItemAsync here
-    setToken(null);
-    setIsAuthenticated(false);
+    try {
+      setToken(null);
+      setIsAuthenticated(false);
 
-    await deleteFromSecureStore("token");
-
-    // setLoading(false);
+      await deleteFromSecureStore("token");
+    } catch (error) {
+      showErrorAlert(error, "Unable to clear your session.");
+      throw error;
+    }
   };
 
   return (

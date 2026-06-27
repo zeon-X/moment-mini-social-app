@@ -3,6 +3,7 @@ import {
     signUpUser,
 } from "@/services/modules/auth.service";
 import type { RegisterFormData, RegisterFormErrors } from "@/types/auth";
+import { getErrorMessage, showErrorAlert } from "@/utils/error-handler";
 import { validateRegisterForm } from "@/utils/validation/auth-validation";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -55,25 +56,37 @@ export const useRegister = () => {
                 return;
             }
             setIsUsernameChecking(true);
-            const data = await checkUsernameAvailability(formData.username.trim());
-            setIsUsernameChecking(false);
+            try {
+                const data = await checkUsernameAvailability(formData.username.trim());
 
-            if (data.success) {
-                setErrors((prev) => ({
-                    ...prev,
-                    username: data.available
-                        ? undefined
-                        : data.message,
-                }));
-                setIsUsernameAvailable((prev) => data.available || null);
-            }
-            else {
+                if (data.success) {
+                    setErrors((prev) => ({
+                        ...prev,
+                        username: data.available
+                            ? undefined
+                            : data.message,
+                    }));
+                    setIsUsernameAvailable((prev) => data.available || null);
+                }
+                else {
+                    setIsUsernameAvailable((prev) => null);
+                    setErrors((prev) => ({
+                        ...prev,
+                        username: data.message,
+
+                    }));
+                }
+            } catch (error) {
                 setIsUsernameAvailable((prev) => null);
                 setErrors((prev) => ({
                     ...prev,
-                    username: data.message,
-
+                    username: getErrorMessage(
+                        error,
+                        "Unable to check username availability.",
+                    ),
                 }));
+            } finally {
+                setIsUsernameChecking(false);
             }
         }, 500);
 
@@ -86,21 +99,30 @@ export const useRegister = () => {
         Keyboard.dismiss();
         if (!registerFormValidate()) return;
         setIsRegistering(true);
-        const data = await signUpUser({ ...formData, age: parseInt(formData.age) });
-        setIsRegistering(false);
+        try {
+            const data = await signUpUser({ ...formData, age: parseInt(formData.age) });
 
-        if (data.success) {
-            router.push("/(auth)/login");
-        }
-        else {
+            if (data.success) {
+                router.push("/(auth)/login");
+            }
+            else {
+                const message = data.message || "Unable to register. Please try again.";
+                setErrors((prev) => ({
+                    ...prev,
+                    message,
+                }));
+                showErrorAlert(message, undefined, "Registration Failed");
+            }
+        } catch (error) {
+            const message = getErrorMessage(error, "Unable to register. Please try again.");
             setErrors((prev) => ({
                 ...prev,
-                message: data.message,
+                message,
             }));
+            showErrorAlert(message, undefined, "Registration Failed");
+        } finally {
+            setIsRegistering(false);
         }
-
-
-
     };
 
     return {

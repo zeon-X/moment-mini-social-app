@@ -12,9 +12,8 @@ export const apiRequest = async (
   method: string = 'GET',
   body?: any
 ) => {
-  const token = await getFromSecureStore("token");
-
   try {
+    const token = await getFromSecureStore("token");
     const response = await fetch(`${API_URL}${endpoint}`, {
       method,
       headers: {
@@ -24,10 +23,15 @@ export const apiRequest = async (
       body: body ? JSON.stringify(body) : undefined,
     })
 
-    const data = await response.json()
+    const responseText = await response.text();
+    const data = responseText ? JSON.parse(responseText) : null;
 
     if (response.status === 401) {
       if (globalLogout.handler) globalLogout.handler();
+    }
+
+    if (!response.ok && !data) {
+      throw new Error(`Request failed with status ${response.status}.`);
     }
 
     return data

@@ -10,7 +10,7 @@ const SplashScreen = () => {
 
   useEffect(() => {
     // Zoom in/out loop animation
-    Animated.loop(
+    const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(scaleAnim, {
           toValue: 1.2,
@@ -23,15 +23,20 @@ const SplashScreen = () => {
           useNativeDriver: true,
         }),
       ]),
-    ).start();
+    );
+
+    animation.start();
 
     // Navigate after 2.5 seconds
     const timeout = setTimeout(() => {
       router.replace("/(auth)/onboarding");
     }, 2500);
 
-    return () => clearTimeout(timeout);
-  }, []);
+    return () => {
+      clearTimeout(timeout);
+      animation.stop();
+    };
+  }, [router, scaleAnim]);
 
   return (
     <ThemedView className="flex-1 items-center justify-center">

@@ -9,6 +9,7 @@ import {
   getFeed,
   toggleLikeOnPost,
 } from "@/services/modules/post.service";
+import { showErrorAlert } from "@/utils/error-handler";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useState } from "react";
 import { KeyboardAvoidingView, Platform, TextInput } from "react-native";
@@ -27,13 +28,19 @@ export default function HomeTabScreen() {
 
   const handleRefresh = async () => {
     setIsLoading(true);
-    // TODO: Fetch fresh posts from API
-    await getFeed().then((data) => {
+    try {
+      const data = await getFeed();
+
       if (data.success) {
         setPosts(data.data);
+      } else {
+        showErrorAlert(data.message, "Unable to load feed.");
       }
-    });
-    setIsLoading(false);
+    } catch (error) {
+      showErrorAlert(error, "Unable to load feed.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const filteredPosts = posts?.filter((post) =>
@@ -44,39 +51,57 @@ export default function HomeTabScreen() {
   );
 
   const handleLike = async (postId: string) => {
-    await toggleLikeOnPost(postId);
+    try {
+      const data = await toggleLikeOnPost(postId);
 
-    setPosts(
-      posts.map((post) => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            liked: !post.liked,
-            likes: post.liked ? post.likes - 1 : post.likes + 1,
-          };
-        }
-        return post;
-      }),
-    );
+      if (!data.success) {
+        showErrorAlert(data.message, "Unable to update like.");
+        return;
+      }
+
+      setPosts(
+        posts.map((post) => {
+          if (post.id === postId) {
+            return {
+              ...post,
+              liked: !post.liked,
+              likes: post.liked ? post.likes - 1 : post.likes + 1,
+            };
+          }
+          return post;
+        }),
+      );
+    } catch (error) {
+      showErrorAlert(error, "Unable to update like.");
+    }
   };
 
   const handleAddComment = async (postId: string, comment: Comment) => {
-    await commentOnPost(postId, { content: comment.content.trim() });
+    try {
+      const data = await commentOnPost(postId, { content: comment.content.trim() });
 
-    setPosts(
-      posts.map((post) => {
-        if (post.id === postId) {
-          return {
-            ...post,
-            comments: [
-              ...post.comments,
-              { ...comment, content: comment.content.trim() },
-            ],
-          };
-        }
-        return post;
-      }),
-    );
+      if (!data.success) {
+        showErrorAlert(data.message, "Unable to add comment.");
+        return;
+      }
+
+      setPosts(
+        posts.map((post) => {
+          if (post.id === postId) {
+            return {
+              ...post,
+              comments: [
+                ...post.comments,
+                { ...comment, content: comment.content.trim() },
+              ],
+            };
+          }
+          return post;
+        }),
+      );
+    } catch (error) {
+      showErrorAlert(error, "Unable to add comment.");
+    }
   };
 
   const handleToggleComments = (postId: string) => {

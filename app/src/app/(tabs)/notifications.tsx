@@ -3,19 +3,20 @@ import { ThemedText } from "@/components/themed-text";
 import LoadingText from "@/components/ui/loading-text";
 import { NotificationCard } from "@/components/ui/notification-card";
 import { useNotifications } from "@/context/notification-context";
+import { showErrorAlert } from "@/utils/error-handler";
 import { useFocusEffect } from "@react-navigation/native";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { View } from "react-native";
 
 const NotificationTabScreen = () => {
   const {
     notifications,
-    unreadCount,
     loading,
     error,
     refreshNotifications,
     markAsRead,
   } = useNotifications();
+  const lastAlertedErrorRef = useRef<string | null>(null);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -23,22 +24,33 @@ const NotificationTabScreen = () => {
     }, [refreshNotifications]),
   );
 
+  useEffect(() => {
+    if (!error || lastAlertedErrorRef.current === error) return;
+
+    lastAlertedErrorRef.current = error;
+    showErrorAlert(error, undefined, "Notifications");
+  }, [error]);
+
   const handleNotificationPress = async (notificationId: string) => {
-    await markAsRead(notificationId);
+    try {
+      await markAsRead(notificationId);
+    } catch (error) {
+      showErrorAlert(error, "Unable to mark notification as read.");
+    }
   };
 
   return (
     <ScreenLayout
       title="Notifications"
-      headerRight={
-        unreadCount > 0 && (
-          <View className="bg-orange-500 rounded-full px-3 py-1">
-            <ThemedText type="xs" className="text-white font-semibold">
-              {unreadCount}
-            </ThemedText>
-          </View>
-        )
-      }
+      // headerRight={
+      //   unreadCount > 0 && (
+      //     <View className="bg-orange-500 rounded-full px-3 py-1">
+      //       <ThemedText type="xs" className="text-white font-semibold">
+      //         {unreadCount}
+      //       </ThemedText>
+      //     </View>
+      //   )
+      // }
       contentClassName="px-4 py-4 pb-8"
       onRefresh={refreshNotifications}
     >

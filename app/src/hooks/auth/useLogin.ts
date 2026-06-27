@@ -2,6 +2,7 @@ import { useAuth } from "@/context/auth-context";
 import { loginUser, saveToken } from "@/services/modules/auth.service";
 import { LoginFormData, LoginFormErrors } from "@/types/auth";
 import { registerForPushNotificationsAsync } from "@/utils/notifications";
+import { getErrorMessage, showErrorAlert } from "@/utils/error-handler";
 import { saveToSecureStore } from "@/utils/useSecureStorage";
 import { validateLoginForm } from "@/utils/validation/auth-validation";
 import { useRouter } from "expo-router";
@@ -34,32 +35,48 @@ export const useLogin = () => {
         Keyboard.dismiss();
         if (!loginFormValidate()) return;
 
-        // Login logic here
         setIsLoggingIn(true);
-        const data = await loginUser(formData)
+        try {
+            const data = await loginUser(formData)
 
+            if (data.success) {
+                await saveToSecureStore("token", data?.token);
 
+                await setSession(data?.token);
+                setUserInfo(data?.data);
 
+                const token = await registerForPushNotificationsAsync()
 
-
-        const token = await registerForPushNotificationsAsync()
-
-        if (data.success) {
-            saveToSecureStore("token", data?.token);
-
-            setSession(data?.token);
-            setUserInfo(data?.data);
-
-            await saveToken({ token });
-        }
-        else {
+                if (token) {
+                    try {
+                        await saveToken({ token });
+                    } catch (error) {
+                        showErrorAlert(
+                            error,
+                            "Logged in, but unable to enable push notifications.",
+                            "Push Notifications",
+                        );
+                    }
+                }
+            }
+            else {
+                const message = data.message || "Unable to login. Please try again.";
+                setErrors((prev) => ({
+                    ...prev,
+                    message,
+                }));
+                showErrorAlert(message, undefined, "Login Failed");
+            }
+        } catch (error) {
+            const message = getErrorMessage(error, "Unable to login. Please try again.");
             setErrors((prev) => ({
                 ...prev,
-                message: data.message,
+                message,
             }));
+            showErrorAlert(message, undefined, "Login Failed");
+        } finally {
+            setIsLoggingIn(false);
         }
-
-        setIsLoggingIn(false);
     };
     return { router, formData, errors, handleChange, isLoggingIn, handleLogin }
 }

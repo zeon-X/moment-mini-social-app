@@ -88,17 +88,22 @@ export const NotificationProvider = ({
     setLoading(true);
     setError(null);
 
-    socket.emit("notifications:get", (res: NotificationsResponse) => {
-      if (res?.success) {
-        setNotifications(res.data ?? []);
-        setUnreadCount(res.unreadCount ?? getUnreadCount(res.data ?? []));
-        setError(null);
-      } else {
-        setError(res?.message ?? "Unable to load notifications.");
-      }
+    try {
+      socket.emit("notifications:get", (res: NotificationsResponse) => {
+        if (res?.success) {
+          setNotifications(res.data ?? []);
+          setUnreadCount(res.unreadCount ?? getUnreadCount(res.data ?? []));
+          setError(null);
+        } else {
+          setError(res?.message ?? "Unable to load notifications.");
+        }
 
+        setLoading(false);
+      });
+    } catch (err: any) {
+      setError(err?.message ?? "Unable to load notifications.");
       setLoading(false);
-    });
+    }
   }, []);
 
   const refreshNotifications = useCallback(async () => {
@@ -149,36 +154,44 @@ export const NotificationProvider = ({
       return;
     }
 
-    socket.emit(
-      "notifications:unread-count",
-      (res: UnreadNotificationCountResponse) => {
-        if (res?.success) {
-          setUnreadCount(res.unreadCount ?? 0);
-          setError(null);
-        } else {
-          setError(res?.message ?? "Unable to load unread notifications.");
-        }
-      },
-    );
+    try {
+      socket.emit(
+        "notifications:unread-count",
+        (res: UnreadNotificationCountResponse) => {
+          if (res?.success) {
+            setUnreadCount(res.unreadCount ?? 0);
+            setError(null);
+          } else {
+            setError(res?.message ?? "Unable to load unread notifications.");
+          }
+        },
+      );
+    } catch (err: any) {
+      setError(err?.message ?? "Unable to load unread notifications.");
+    }
   }, []);
 
   const markAsRead = useCallback(async (notificationId: string) => {
     const socket = socketRef.current;
 
     if (socket?.connected) {
-      socket.emit(
-        "notification:read",
-        notificationId,
-        (res: MarkNotificationReadResponse) => {
-          if (res?.success) {
-            setNotifications((prev) => applyReadState(prev, notificationId));
-            setUnreadCount(res.unreadCount ?? 0);
-            setError(null);
-          } else {
-            setError(res?.message ?? "Unable to mark notification as read.");
-          }
-        },
-      );
+      try {
+        socket.emit(
+          "notification:read",
+          notificationId,
+          (res: MarkNotificationReadResponse) => {
+            if (res?.success) {
+              setNotifications((prev) => applyReadState(prev, notificationId));
+              setUnreadCount(res.unreadCount ?? 0);
+              setError(null);
+            } else {
+              setError(res?.message ?? "Unable to mark notification as read.");
+            }
+          },
+        );
+      } catch (err: any) {
+        setError(err?.message ?? "Unable to mark notification as read.");
+      }
 
       return;
     }

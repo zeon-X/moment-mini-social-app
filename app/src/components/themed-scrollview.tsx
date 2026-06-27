@@ -2,6 +2,7 @@ import { useState } from "react";
 import { RefreshControl, ScrollView, type ViewProps } from "react-native";
 
 import { useThemeColor } from "@/hooks/use-theme-color";
+import { showErrorAlert } from "@/utils/error-handler";
 
 export type ThemedScrollViewProps = ViewProps & {
   lightColor?: string;
@@ -31,6 +32,8 @@ export function ThemedScrollView({
         // Default refresh operation
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
+    } catch (error) {
+      showErrorAlert(error, "Unable to refresh.");
     } finally {
       setRefreshing(false);
     }

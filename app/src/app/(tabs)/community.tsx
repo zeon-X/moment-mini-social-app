@@ -2,6 +2,7 @@ import { ScreenLayout } from "@/components/screen-layout";
 import LoadingText from "@/components/ui/loading-text";
 import { MemberCard } from "@/components/ui/member-card";
 import { getCommunityMembers } from "@/services/modules/user.service";
+import { showErrorAlert } from "@/utils/error-handler";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 import type { CommunityMember } from "../../types/community";
@@ -18,12 +19,19 @@ export default function CommunityTabScreen() {
 
   const handleRefresh = async () => {
     setIsLoading(true);
-    // TODO: Fetch community members from API
-    await getCommunityMembers().then((data) => {
-      setMembers(data.data);
-      // Update COMMUNITY_MEMBERS with fetched data if needed
-    });
-    setIsLoading(false);
+    try {
+      const data = await getCommunityMembers();
+
+      if (data.success) {
+        setMembers(data.data);
+      } else {
+        showErrorAlert(data.message, "Unable to load community members.");
+      }
+    } catch (error) {
+      showErrorAlert(error, "Unable to load community members.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
