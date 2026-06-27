@@ -6,14 +6,16 @@ import { useNotifications } from "@/context/notification-context";
 import { showErrorAlert } from "@/utils/error-handler";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useEffect, useRef } from "react";
-import { View } from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
 
 const NotificationTabScreen = () => {
   const {
     notifications,
     loading,
+    loadingMore,
     error,
     refreshNotifications,
+    loadMoreNotifications,
     markAsRead,
   } = useNotifications();
   const lastAlertedErrorRef = useRef<string | null>(null);
@@ -51,33 +53,50 @@ const NotificationTabScreen = () => {
       //     </View>
       //   )
       // }
-      contentClassName="px-4 py-4 pb-8"
-      onRefresh={refreshNotifications}
+      contentClassName="flex-1"
+      scrollable={false}
+      contentContainerProps={{ style: { flex: 1 } }}
     >
-      {/* Notifications List */}
-      {notifications.length === 0 && loading ? (
-        <LoadingText message="Loading notifications..." />
-      ) : error ? (
-        <View className="items-center justify-center py-12">
-          <ThemedText type="small" className="text-red-500 text-center">
-            {error}
-          </ThemedText>
-        </View>
-      ) : notifications.length > 0 ? (
-        notifications.map((notification) => (
+      <FlatList
+        data={notifications}
+        keyExtractor={(notification) => notification.id}
+        contentContainerClassName="px-4 py-4 pb-8"
+        refreshControl={
+          <RefreshControl
+            refreshing={loading && notifications.length > 0}
+            onRefresh={refreshNotifications}
+            tintColor="#f04c00df"
+          />
+        }
+        ListEmptyComponent={
+          loading ? (
+            <LoadingText message="Loading notifications..." />
+          ) : error ? (
+            <View className="items-center justify-center py-12">
+              <ThemedText type="small" className="text-red-500 text-center">
+                {error}
+              </ThemedText>
+            </View>
+          ) : (
+            <View className="items-center justify-center py-12">
+              <ThemedText type="small" className="text-gray-500">
+                No notifications yet
+              </ThemedText>
+            </View>
+          )
+        }
+        ListFooterComponent={
+          loadingMore ? <ActivityIndicator color="#f04c00df" /> : null
+        }
+        renderItem={({ item: notification }) => (
           <NotificationCard
-            key={notification.id}
             notification={notification}
             onPress={() => handleNotificationPress(notification.id)}
           />
-        ))
-      ) : (
-        <View className="items-center justify-center py-12">
-          <ThemedText type="small" className="text-gray-500">
-            No notifications yet
-          </ThemedText>
-        </View>
-      )}
+        )}
+        onEndReached={loadMoreNotifications}
+        onEndReachedThreshold={0.4}
+      />
     </ScreenLayout>
   );
 };

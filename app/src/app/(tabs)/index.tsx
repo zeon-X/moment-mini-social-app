@@ -10,45 +10,110 @@ import {
   toggleLikeOnPost,
 } from "@/services/modules/post.service";
 import { showErrorAlert } from "@/utils/error-handler";
+import { useDebounce } from "@/utils/useDebounce";
 import { useFocusEffect } from "@react-navigation/native";
-import React, { useState } from "react";
-import { KeyboardAvoidingView, Platform, TextInput } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  TextInput,
+} from "react-native";
+
+const PAGE_LIMIT = 10;
+
+type Pagination = {
+  page: number;
+  limit: number;
+  itemCount: number;
+  hasMore: boolean;
+  nextPage: number | null;
+};
 
 export default function HomeTabScreen() {
   const [filterText, setFilterText] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const debouncedFilterText = useDebounce(filterText, 500);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+  const paginationRef = useRef<Pagination | null>(null);
+  const isLoadingMoreRef = useRef(false);
+
+  const loadPosts = useCallback(
+    async (page = 1, shouldRefresh = false) => {
+      if (
+        page > 1 &&
+        (isLoadingMoreRef.current || !paginationRef.current?.hasMore)
+      )
+        return;
+
+      if (page === 1) {
+        if (shouldRefresh) {
+          setIsRefreshing(true);
+        } else {
+          setIsLoading(true);
+        }
+      } else {
+        isLoadingMoreRef.current = true;
+        setIsLoadingMore(true);
+      }
+
+      try {
+        const data = await getFeed({
+          page,
+          limit: PAGE_LIMIT,
+          search: debouncedFilterText.trim() || undefined,
+        });
+
+        if (data.success) {
+          setPosts((prev) =>
+            page === 1 ? data.data : [...prev, ...data.data],
+          );
+          const nextPagination = data.pagination ?? null;
+          paginationRef.current = nextPagination;
+          setPagination(nextPagination);
+        } else {
+          showErrorAlert(data.message, "Unable to load feed.");
+        }
+      } catch (error) {
+        showErrorAlert(error, "Unable to load feed.");
+      } finally {
+        if (page === 1) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        } else {
+          isLoadingMoreRef.current = false;
+          setIsLoadingMore(false);
+        }
+      }
+    },
+    [debouncedFilterText],
+  );
+
+  const handleRefresh = useCallback(async () => {
+    await loadPosts(1, posts.length > 0);
+  }, [loadPosts, posts.length]);
+
+  const handleLoadMore = useCallback(() => {
+    if (pagination?.hasMore && pagination.nextPage && !isLoadingMore) {
+      loadPosts(pagination.nextPage);
+    }
+  }, [isLoadingMore, loadPosts, pagination?.hasMore, pagination?.nextPage]);
 
   useFocusEffect(
     React.useCallback(() => {
-      handleRefresh();
-    }, []),
+      loadPosts(1);
+    }, [loadPosts]),
   );
 
-  const handleRefresh = async () => {
-    setIsLoading(true);
-    try {
-      const data = await getFeed();
-
-      if (data.success) {
-        setPosts(data.data);
-      } else {
-        showErrorAlert(data.message, "Unable to load feed.");
-      }
-    } catch (error) {
-      showErrorAlert(error, "Unable to load feed.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const filteredPosts = posts?.filter((post) =>
-    filterText.trim() === ""
-      ? true
-      : post.username.toLowerCase().includes(filterText.toLowerCase()) ||
-        post.author.toLowerCase().includes(filterText.toLowerCase()),
-  );
+  useEffect(() => {
+    setExpandedPostId(null);
+  }, [debouncedFilterText]);
 
   const handleLike = async (postId: string) => {
     try {
@@ -59,8 +124,8 @@ export default function HomeTabScreen() {
         return;
       }
 
-      setPosts(
-        posts.map((post) => {
+      setPosts((prev) =>
+        prev.map((post) => {
           if (post.id === postId) {
             return {
               ...post,
@@ -78,15 +143,17 @@ export default function HomeTabScreen() {
 
   const handleAddComment = async (postId: string, comment: Comment) => {
     try {
-      const data = await commentOnPost(postId, { content: comment.content.trim() });
+      const data = await commentOnPost(postId, {
+        content: comment.content.trim(),
+      });
 
       if (!data.success) {
         showErrorAlert(data.message, "Unable to add comment.");
         return;
       }
 
-      setPosts(
-        posts.map((post) => {
+      setPosts((prev) =>
+        prev.map((post) => {
           if (post.id === postId) {
             return {
               ...post,
@@ -112,55 +179,63 @@ export default function HomeTabScreen() {
     <ScreenLayout
       title="Feed"
       scrollViewClassName="flex-1"
-      contentClassName="px-4 py-4"
-      onRefresh={handleRefresh}
+      contentClassName="flex-1"
+      scrollable={false}
+      contentContainerProps={{ style: { flex: 1 } }}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
       >
-        <>
-          {/* Filter Input */}
-          <TextInput
-            placeholder="Filter by username or name..."
-            placeholderTextColor="#999"
-            value={filterText}
-            onChangeText={setFilterText}
-            className="bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-3 rounded-lg mb-6 border border-gray-200 dark:border-gray-700"
-          />
-
-          {/* Posts List */}
-          {posts.length === 0 && isLoading ? (
-            <LoadingText message="Loading feed..." />
-          ) : filteredPosts?.length > 0 ? (
-            filteredPosts?.map((post) => (
-              <PostCard
-                key={post?.id}
-                post={post}
-                isExpanded={expandedPostId === post?.id}
-                onLike={handleLike}
-                onToggleComments={handleToggleComments}
-                onAddComment={handleAddComment}
-              />
-            ))
-          ) : (
-            <ThemedView className="flex-1 items-center justify-center py-12">
-              <ThemedText className="text-gray-500 text-center">
-                {filterText.trim() !== "" &&
-                  `No posts found for "${filterText}"`}
-              </ThemedText>
-            </ThemedView>
+        <FlatList
+          data={posts}
+          keyExtractor={(post) => post.id}
+          contentContainerClassName="px-4 py-4 pb-8 "
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={handleRefresh}
+              tintColor="#f04c00df"
+            />
+          }
+          ListHeaderComponent={
+            <TextInput
+              placeholder="Search by username or name..."
+              placeholderTextColor="#999"
+              value={filterText}
+              onChangeText={setFilterText}
+              className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-3 rounded-lg mb-6 border border-gray-200 dark:border-gray-700"
+            />
+          }
+          ListEmptyComponent={
+            isLoading ? (
+              <LoadingText message="Loading feed..." />
+            ) : (
+              <ThemedView className="flex-1 items-center justify-center py-12">
+                <ThemedText className="text-gray-500 text-center">
+                  {debouncedFilterText.trim()
+                    ? `No posts found for "${debouncedFilterText.trim()}"`
+                    : "No posts yet. Pull down to refresh or check back later!"}
+                </ThemedText>
+              </ThemedView>
+            )
+          }
+          ListFooterComponent={
+            isLoadingMore ? <ActivityIndicator color="#f04c00df" /> : null
+          }
+          renderItem={({ item }) => (
+            <PostCard
+              post={item}
+              isExpanded={expandedPostId === item.id}
+              onLike={handleLike}
+              onToggleComments={handleToggleComments}
+              onAddComment={handleAddComment}
+            />
           )}
-
-          {/* Empty State */}
-          {!isLoading && filteredPosts?.length === 0 && !filterText && (
-            <ThemedView className="flex-1 items-center justify-center py-12">
-              <ThemedText className="text-gray-500 text-center">
-                No posts yet. Pull down to refresh or check back later!
-              </ThemedText>
-            </ThemedView>
-          )}
-        </>
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.4}
+        />
       </KeyboardAvoidingView>
     </ScreenLayout>
   );

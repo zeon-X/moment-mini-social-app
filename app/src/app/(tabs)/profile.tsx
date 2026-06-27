@@ -3,19 +3,38 @@ import { ThemedText } from "@/components/themed-text";
 import { Avatar } from "@/components/ui/avatar";
 import { CrossConfirm } from "@/components/ui/cross-confirm";
 import LoadingText from "@/components/ui/loading-text";
-import { PostCard } from "@/components/ui/post-card";
+import { PostCard, type Post } from "@/components/ui/post-card";
 import { StatCard } from "@/components/ui/stat-card";
+import { getMe } from "@/services/modules/auth.service";
 import {
   commentOnPost,
+  getFeed,
   toggleLikeOnPost,
 } from "@/services/modules/post.service";
 import { getUserDetails } from "@/services/modules/user.service";
 import { showErrorAlert } from "@/utils/error-handler";
 import { useFocusEffect } from "@react-navigation/native";
-import React, { useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useAuth } from "../../context/auth-context";
 import type { Comment, UserProfile } from "../../types/user";
+
+const PAGE_LIMIT = 10;
+
+type Pagination = {
+  page: number;
+  limit: number;
+  itemCount: number;
+  hasMore: boolean;
+  nextPage: number | null;
+};
 
 const SAMPLE_USER: UserProfile = {
   name: "",
@@ -23,39 +42,155 @@ const SAMPLE_USER: UserProfile = {
   email: "",
   username: "",
   stats: { posts: 0, comments: 0, likes: 0 },
-  posts: [],
 };
 
 const ProfileTabScreen = () => {
-  const { clearSession, userInfo } = useAuth();
+  const { clearSession, setUserInfo, userInfo } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [user, setUser] = useState<UserProfile>(SAMPLE_USER);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+  const paginationRef = useRef<Pagination | null>(null);
+  const isLoadingMoreRef = useRef(false);
 
-  const handleRefresh = React.useCallback(async () => {
-    if (!userInfo?.username) return;
+  const resolveUsername = useCallback(async () => {
+    if (userInfo?.username) return userInfo.username;
 
-    setIsLoading(true);
+    const data = await getMe();
+    if (data.success) {
+      setUserInfo(data.data);
+      return data.data.username;
+    }
+
+    showErrorAlert(data.message, "Unable to load your profile.");
+    return null;
+  }, [setUserInfo, userInfo?.username]);
+
+  const loadUserDetails = useCallback(async (username: string) => {
     try {
-      const data = await getUserDetails(userInfo.username);
+      const data = await getUserDetails(username);
 
       if (data.success) {
         setUser(data.data);
+        return true;
       } else {
         showErrorAlert(data.message, "Unable to load profile.");
       }
     } catch (error) {
       showErrorAlert(error, "Unable to load profile.");
-    } finally {
-      setIsLoading(false);
     }
-  }, [userInfo?.username]);
+    return false;
+  }, []);
+
+  const loadPosts = useCallback(
+    async (username: string, page = 1) => {
+      if (
+        page > 1 &&
+        (isLoadingMoreRef.current || !paginationRef.current?.hasMore)
+      )
+        return;
+
+      if (page > 1) {
+        isLoadingMoreRef.current = true;
+        setIsLoadingMore(true);
+      }
+
+      try {
+        const data = await getFeed({
+          page,
+          limit: PAGE_LIMIT,
+          search: username,
+          authorUsername: username,
+        });
+
+        if (data.success) {
+          const profilePosts = data.data.filter(
+            (post: Post) => post.username === username,
+          );
+          setPosts((prev) =>
+            page === 1 ? profilePosts : [...prev, ...profilePosts],
+          );
+          const nextPagination = data.pagination ?? null;
+          paginationRef.current = nextPagination;
+          setPagination(nextPagination);
+        } else {
+          showErrorAlert(data.message, "Unable to load posts.");
+        }
+      } catch (error) {
+        showErrorAlert(error, "Unable to load posts.");
+      } finally {
+        if (page > 1) {
+          isLoadingMoreRef.current = false;
+          setIsLoadingMore(false);
+        }
+      }
+    },
+    [],
+  );
+
+  const loadProfile = useCallback(
+    async (shouldRefresh = false) => {
+      if (shouldRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+
+      try {
+        const username = await resolveUsername();
+        if (!username) {
+          setPosts([]);
+          setPagination(null);
+          paginationRef.current = null;
+          return;
+        }
+
+        paginationRef.current = null;
+        setPagination(null);
+        await Promise.all([loadUserDetails(username), loadPosts(username, 1)]);
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [loadPosts, loadUserDetails, resolveUsername],
+  );
+
+  const handleRefresh = useCallback(async () => {
+    await loadProfile(posts.length > 0 || user.username !== "");
+  }, [loadProfile, posts.length, user.username]);
+
+  const handleLoadMore = useCallback(() => {
+    if (pagination?.hasMore && pagination.nextPage && !isLoadingMore) {
+      const username = user.username || userInfo?.username;
+      if (username) {
+        loadPosts(username, pagination.nextPage);
+      }
+    }
+  }, [
+    isLoadingMore,
+    loadPosts,
+    pagination?.hasMore,
+    pagination?.nextPage,
+    user.username,
+    userInfo?.username,
+  ]);
+
+  const refreshProfileStats = useCallback(async () => {
+    const username = user.username || userInfo?.username;
+    if (username) {
+      await loadUserDetails(username);
+    }
+  }, [loadUserDetails, user.username, userInfo?.username]);
 
   useFocusEffect(
-    React.useCallback(() => {
-      handleRefresh();
-    }, [handleRefresh]),
+    useCallback(() => {
+      loadProfile();
+    }, [loadProfile]),
   );
 
   const handleLogout = async () => {
@@ -87,15 +222,8 @@ const ProfileTabScreen = () => {
         return;
       }
 
-      setUser((prev) => ({
-        ...prev,
-        stats: {
-          ...prev.stats,
-          likes:
-            prev.stats?.likes +
-            (user?.posts.find((p) => p.id === postId)?.liked ? -1 : 1),
-        },
-        posts: prev.posts.map((post) =>
+      setPosts((prev) =>
+        prev.map((post) =>
           post.id === postId
             ? {
                 ...post,
@@ -104,7 +232,8 @@ const ProfileTabScreen = () => {
               }
             : post,
         ),
-      }));
+      );
+      await refreshProfileStats();
     } catch (error) {
       showErrorAlert(error, "Unable to update like.");
     }
@@ -112,25 +241,29 @@ const ProfileTabScreen = () => {
 
   const handleAddComment = async (postId: string, comment: Comment) => {
     try {
-      const data = await commentOnPost(postId, { content: comment.content.trim() });
+      const data = await commentOnPost(postId, {
+        content: comment.content.trim(),
+      });
 
       if (!data.success) {
         showErrorAlert(data.message, "Unable to add comment.");
         return;
       }
 
-      setUser((prev) => ({
-        ...prev,
-        stats: {
-          ...prev.stats,
-          comments: prev.stats?.comments + 1,
-        },
-        posts: prev.posts.map((post) =>
+      setPosts((prev) =>
+        prev.map((post) =>
           post.id === postId
-            ? { ...post, comments: [...post.comments, comment] }
+            ? {
+                ...post,
+                comments: [
+                  ...post.comments,
+                  { ...comment, content: comment.content.trim() },
+                ],
+              }
             : post,
         ),
-      }));
+      );
+      await refreshProfileStats();
     } catch (error) {
       showErrorAlert(error, "Unable to add comment.");
     }
@@ -154,65 +287,72 @@ const ProfileTabScreen = () => {
           </Text>
         </TouchableOpacity>
       }
-      contentClassName="px-4 py-6"
+      contentClassName="flex-1"
       scrollViewClassName="flex-1"
-      onRefresh={handleRefresh}
+      scrollable={false}
+      contentContainerProps={{ style: { flex: 1 } }}
     >
-      {user === SAMPLE_USER && isLoading ? (
-        <LoadingText message="Loading profile..." />
-      ) : (
-        <>
-          {/* Avatar */}
-          <View className="items-center mb-4">
-            <Avatar name={user?.name} size="lg" />
-          </View>
+      <FlatList
+        data={posts}
+        keyExtractor={(post) => post.id}
+        contentContainerClassName="px-4 py-6 pb-8"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#f04c00df"
+          />
+        }
+        ListHeaderComponent={
+          <>
+            <View className="items-center mb-4">
+              <Avatar name={user?.name} size="lg" />
+            </View>
 
-          {/* Info */}
-          <View className="items-center mb-4">
-            {/* Name */}
-            <ThemedText type="defaultSemiBold" className="text-xl mb-1">
-              {user?.name}
-            </ThemedText>
-            {/* Username & Email */}
-            <ThemedText type="small" className="text-gray-500">
-              @{user?.username} {user?.email && "|"} {user?.email}
-            </ThemedText>
-          </View>
+            <View className="items-center mb-4">
+              <ThemedText type="defaultSemiBold" className="text-xl mb-1">
+                {user?.name}
+              </ThemedText>
+              <ThemedText type="small" className="text-gray-500">
+                @{user?.username} {user?.email && "|"} {user?.email}
+              </ThemedText>
+            </View>
 
-          {/* Stats Section */}
-          <View className="flex-row gap-3 mb-8">
-            <StatCard value={user?.stats?.posts} label="Posts" />
-            <StatCard value={user?.stats?.comments} label="Comments" />
-            <StatCard value={user?.stats?.likes} label="Likes" />
-          </View>
+            <View className="flex-row gap-3 mb-8">
+              <StatCard value={user?.stats?.posts} label="Posts" />
+              <StatCard value={user?.stats?.comments} label="Comments" />
+              <StatCard value={user?.stats?.likes} label="Likes" />
+            </View>
 
-          {/* My Posts Section */}
-          <View className="mb-6">
             <ThemedText type="defaultSemiBold" className="text-lg mb-4">
               My Posts
             </ThemedText>
-            {user?.posts?.length > 0 ? (
-              user?.posts?.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  isExpanded={expandedPostId === post.id}
-                  onLike={handleLike}
-                  onToggleComments={handleToggleComments}
-                  onAddComment={handleAddComment}
-                />
-              ))
-            ) : (
-              <ThemedText
-                type="small"
-                className="text-gray-500 text-center py-4"
-              >
-                No posts yet
-              </ThemedText>
-            )}
-          </View>
-        </>
-      )}
+          </>
+        }
+        ListEmptyComponent={
+          isLoading ? (
+            <LoadingText message="Loading profile..." />
+          ) : (
+            <ThemedText type="small" className="text-gray-500 text-center py-4">
+              No posts yet
+            </ThemedText>
+          )
+        }
+        ListFooterComponent={
+          isLoadingMore ? <ActivityIndicator color="#f04c00df" /> : null
+        }
+        renderItem={({ item }) => (
+          <PostCard
+            post={item}
+            isExpanded={expandedPostId === item.id}
+            onLike={handleLike}
+            onToggleComments={handleToggleComments}
+            onAddComment={handleAddComment}
+          />
+        )}
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.4}
+      />
     </ScreenLayout>
   );
 };

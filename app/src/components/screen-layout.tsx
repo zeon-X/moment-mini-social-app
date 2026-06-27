@@ -1,7 +1,7 @@
 import { ThemedScrollView } from "@/components/themed-scrollview";
 import { ThemedText } from "@/components/themed-text";
 import React, { ReactNode } from "react";
-import { View } from "react-native";
+import { View, type ViewProps } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type ScreenLayoutProps = {
@@ -12,6 +12,8 @@ type ScreenLayoutProps = {
   scrollViewClassName?: string;
   contentClassName?: string;
   onRefresh?: () => Promise<void> | void;
+  scrollable?: boolean;
+  contentContainerProps?: ViewProps;
 };
 
 export function ScreenLayout({
@@ -22,6 +24,8 @@ export function ScreenLayout({
   scrollViewClassName = "flex-1",
   contentClassName = "px-4 py-4",
   onRefresh,
+  scrollable = true,
+  contentContainerProps,
 }: ScreenLayoutProps) {
   const hasHeaderRight = !!headerRight;
   const hasSubtitle = !!subtitle;
@@ -44,24 +48,47 @@ export function ScreenLayout({
         {headerRight && <View>{headerRight}</View>}
       </View>
 
-      {/* Scrollable Content Area */}
-      <ThemedScrollView className={scrollViewClassName} onRefresh={onRefresh}>
-        {/* Subtitle (if exists) */}
-        {hasSubtitle && (
-          <View className="px-4 py-4 border-b border-gray-100 dark:border-gray-700">
-            {typeof subtitle === "string" ? (
-              <ThemedText type="small" className="text-gray-500">
-                {subtitle}
-              </ThemedText>
-            ) : (
-              subtitle
-            )}
-          </View>
-        )}
+      {scrollable ? (
+        <ThemedScrollView className={scrollViewClassName} onRefresh={onRefresh}>
+          {/* Subtitle (if exists) */}
+          {hasSubtitle && (
+            <View className="px-4 py-4 border-b border-gray-100 dark:border-gray-700">
+              {typeof subtitle === "string" ? (
+                <ThemedText type="small" className="text-gray-500">
+                  {subtitle}
+                </ThemedText>
+              ) : (
+                subtitle
+              )}
+            </View>
+          )}
 
-        {/* Main Content Area */}
-        <View className={contentClassName}>{children}</View>
-      </ThemedScrollView>
+          {/* Main Content Area */}
+          <View className={contentClassName} {...contentContainerProps}>
+            {children}
+          </View>
+        </ThemedScrollView>
+      ) : (
+        <View className={scrollViewClassName}>
+          {/* Subtitle (if exists) */}
+          {hasSubtitle && (
+            <View className="px-4 py-4 border-b border-gray-100 dark:border-gray-700">
+              {typeof subtitle === "string" ? (
+                <ThemedText type="small" className="text-gray-500">
+                  {subtitle}
+                </ThemedText>
+              ) : (
+                subtitle
+              )}
+            </View>
+          )}
+
+          {/* Main Content Area */}
+          <View className={contentClassName} {...contentContainerProps}>
+            {children}
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }

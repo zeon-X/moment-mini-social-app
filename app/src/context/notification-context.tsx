@@ -9,6 +9,7 @@ import type {
   MarkNotificationReadResponse,
   Notification,
   NotificationsResponse,
+  Pagination,
   UnreadNotificationCountResponse,
 } from "@/types/notification";
 import React, {
@@ -26,9 +27,11 @@ type NotificationContextValue = {
   notifications: Notification[];
   unreadCount: number;
   loading: boolean;
+  loadingMore: boolean;
   error: string | null;
   connected: boolean;
   refreshNotifications: () => Promise<void>;
+  loadMoreNotifications: () => Promise<void>;
   refreshUnreadCount: () => Promise<void>;
   markAsRead: (notificationId: string) => Promise<void>;
 };
@@ -71,6 +74,8 @@ const upsertNewNotification = (
 const getUnreadCount = (list: Notification[]) =>
   list.filter((notification) => !notification.read).length;
 
+const PAGE_LIMIT = 10;
+
 export const NotificationProvider = ({
   children,
 }: {
@@ -81,57 +86,68 @@ export const NotificationProvider = ({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const paginationRef = useRef<Pagination | null>(null);
+  const loadingMoreRef = useRef(false);
 
-  const loadNotificationsFromSocket = useCallback((socket: Socket) => {
-    setLoading(true);
+  const loadNotificationsPage = useCallback(async (page = 1) => {
+    const isFirstPage = page === 1;
+    const shouldAppend = page > 1;
+
+    if (shouldAppend && (loadingMoreRef.current || !paginationRef.current?.hasMore)) return;
+
+    if (isFirstPage) {
+      setLoading(true);
+    } else {
+      loadingMoreRef.current = true;
+      setLoadingMore(true);
+    }
     setError(null);
 
     try {
-      socket.emit("notifications:get", (res: NotificationsResponse) => {
-        if (res?.success) {
-          setNotifications(res.data ?? []);
-          setUnreadCount(res.unreadCount ?? getUnreadCount(res.data ?? []));
-          setError(null);
-        } else {
-          setError(res?.message ?? "Unable to load notifications.");
-        }
-
-        setLoading(false);
-      });
-    } catch (err: any) {
-      setError(err?.message ?? "Unable to load notifications.");
-      setLoading(false);
-    }
-  }, []);
-
-  const refreshNotifications = useCallback(async () => {
-    const socket = socketRef.current;
-
-    if (socket?.connected) {
-      loadNotificationsFromSocket(socket);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = (await getUserNotifications()) as NotificationsResponse;
+      const res = (await getUserNotifications({
+        page,
+        limit: PAGE_LIMIT,
+      })) as NotificationsResponse;
 
       if (res.success) {
-        setNotifications(res.data ?? []);
-        setUnreadCount(res.unreadCount ?? getUnreadCount(res.data ?? []));
+        setNotifications((prev) =>
+          shouldAppend ? [...prev, ...(res.data ?? [])] : (res.data ?? []),
+        );
+        setUnreadCount((prev) =>
+          res.unreadCount ??
+          (isFirstPage ? getUnreadCount(res.data ?? []) : prev),
+        );
+        const nextPagination = res.pagination ?? null;
+        paginationRef.current = nextPagination;
+        setPagination(nextPagination);
       } else {
         setError(res.message ?? "Unable to load notifications.");
       }
     } catch (err: any) {
       setError(err?.message ?? "Unable to load notifications.");
     } finally {
-      setLoading(false);
+      if (isFirstPage) {
+        setLoading(false);
+      } else {
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
     }
-  }, [loadNotificationsFromSocket]);
+  }, []);
+
+  const refreshNotifications = useCallback(async () => {
+    await loadNotificationsPage(1);
+  }, [loadNotificationsPage]);
+
+  const loadMoreNotifications = useCallback(async () => {
+    if (!pagination?.hasMore || !pagination.nextPage) return;
+
+    await loadNotificationsPage(pagination.nextPage);
+  }, [loadNotificationsPage, pagination?.hasMore, pagination?.nextPage]);
 
   const refreshUnreadCount = useCallback(async () => {
     const socket = socketRef.current;
@@ -170,6 +186,12 @@ export const NotificationProvider = ({
       setError(err?.message ?? "Unable to load unread notifications.");
     }
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !token) return;
+
+    refreshUnreadCount();
+  }, [isAuthenticated, refreshUnreadCount, token]);
 
   const markAsRead = useCallback(async (notificationId: string) => {
     const socket = socketRef.current;
@@ -221,11 +243,14 @@ export const NotificationProvider = ({
       setNotifications([]);
       setUnreadCount(0);
       setLoading(false);
+      setLoadingMore(false);
       setError(null);
+      setPagination(null);
+      paginationRef.current = null;
+      loadingMoreRef.current = false;
       return;
     }
 
-    setLoading(true);
     setError(null);
 
     const socket = io(getSocketUrl(), {
@@ -236,7 +261,7 @@ export const NotificationProvider = ({
 
     const handleConnect = () => {
       setConnected(true);
-      loadNotificationsFromSocket(socket);
+      refreshUnreadCount();
     };
 
     const handleDisconnect = () => {
@@ -283,7 +308,7 @@ export const NotificationProvider = ({
         socketRef.current = null;
       }
     };
-  }, [isAuthenticated, loadNotificationsFromSocket, token]);
+  }, [isAuthenticated, refreshUnreadCount, token]);
 
   return (
     <NotificationContext.Provider
@@ -291,9 +316,11 @@ export const NotificationProvider = ({
         notifications,
         unreadCount,
         loading,
+        loadingMore,
         error,
         connected,
         refreshNotifications,
+        loadMoreNotifications,
         refreshUnreadCount,
         markAsRead,
       }}

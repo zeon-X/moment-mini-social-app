@@ -2,27 +2,38 @@ import { NotificationType } from "@prisma/client";
 import { prisma } from "../../config/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { getPaginationMeta } from "../../utils/pagination.js";
-import {
-  createNotification,
-  getUnreadCount,
-  sendPushNotification,
-} from "../notification/notification.service.js";
+import { enqueuePostNotification } from "../notification/notification.service.js";
 
 export const createPost = async (userId, content) => {
-  return prisma.post.create({
-    data: {
-      content,
-      authorId: userId,
-    },
+  return prisma.$transaction(async (tx) => {
+    const post = await tx.post.create({
+      data: {
+        content,
+        authorId: userId,
+      },
+    });
+
+    await tx.user.update({
+      where: { id: userId },
+      data: { postCount: { increment: 1 } },
+    });
+
+    return post;
   });
 };
 
 export const getGlobalFeed = async (
   currentUserId,
-  { page = 1, limit = 10, search = "" } = {},
+  { page = 1, limit = 10, search = "", authorUsername = "" } = {},
 ) => {
   const skip = (page - 1) * limit;
-  const where = search
+  const where = authorUsername
+    ? {
+        author: {
+          username: authorUsername,
+        },
+      }
+    : search
     ? {
         author: {
           OR: [
@@ -109,43 +120,41 @@ export const toggleLike = async (userId, postId) => {
   });
 
   if (existingLike) {
-    await prisma.like.delete({
-      where: { id: existingLike.id },
-    });
-    return { liked: false };
+    const [, updatedAuthor] = await prisma.$transaction([
+      prisma.like.delete({
+        where: { id: existingLike.id },
+      }),
+      prisma.user.update({
+        where: { id: post.authorId },
+        data: { likeCount: { decrement: 1 } },
+        select: { likeCount: true },
+      }),
+    ]);
+
+    return { liked: false, likeCount: updatedAuthor.likeCount };
   }
 
-  await prisma.like.create({
-    data: { userId, postId },
-  });
+  const [, updatedAuthor] = await prisma.$transaction([
+    prisma.like.create({
+      data: { userId, postId },
+    }),
+    prisma.user.update({
+      where: { id: post.authorId },
+      data: { likeCount: { increment: 1 } },
+      select: { likeCount: true },
+    }),
+  ]);
 
-  await createNotification({
+  enqueuePostNotification({
     type: NotificationType.LIKE,
     recipientId: post.authorId,
     senderId: userId,
     postId,
+    pushTitle: "New Like ❤️",
+    pushAction: "liked",
   });
 
-  const unreadCount = await getUnreadCount(post.authorId);
-
-  const sender = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { name: true },
-  });
-
-  const recipient = await prisma.user.findUnique({
-    where: { id: post.authorId },
-  });
-
-  await sendPushNotification({
-    token: recipient?.fcmToken,
-    title: "New Like ❤️",
-    body: `${sender.name} liked your post`,
-    badge: unreadCount,
-    recipientId: post.authorId,
-  });
-
-  return { liked: true };
+  return { liked: true, likeCount: updatedAuthor.likeCount };
 };
 
 export const addComment = async (userId, postId, content) => {
@@ -158,47 +167,39 @@ export const addComment = async (userId, postId, content) => {
     throw new ApiError(404, "Post not found");
   }
 
-  const comment = await prisma.comment.create({
-    data: {
-      content,
-      userId,
-      postId,
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          username: true,
+  const comment = await prisma.$transaction(async (tx) => {
+    const createdComment = await tx.comment.create({
+      data: {
+        content,
+        userId,
+        postId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+          },
         },
       },
-    },
+    });
+
+    await tx.user.update({
+      where: { id: post.authorId },
+      data: { commentCount: { increment: 1 } },
+    });
+
+    return createdComment;
   });
 
-  await createNotification({
+  enqueuePostNotification({
     type: NotificationType.COMMENT,
     recipientId: post.authorId,
     senderId: userId,
     postId,
-  });
-
-  const unreadCount = await getUnreadCount(post.authorId);
-
-  const sender = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { name: true },
-  });
-
-  const recipient = await prisma.user.findUnique({
-    where: { id: post.authorId },
-  });
-
-  await sendPushNotification({
-    token: recipient?.fcmToken,
-    title: "New Comment 💬",
-    body: `${sender.name} commented on your post`,
-    badge: unreadCount,
-    recipientId: post.authorId,
+    pushTitle: "New Comment 💬",
+    pushAction: "commented on",
   });
 
   return {

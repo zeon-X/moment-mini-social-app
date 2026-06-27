@@ -9,7 +9,6 @@ export type UserProfile = {
         comments: number;
         likes: number;
     };
-    posts: Post[];
 };
 
 export type UserInfo = {

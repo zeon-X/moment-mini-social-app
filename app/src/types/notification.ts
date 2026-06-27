@@ -11,10 +11,19 @@ export type Notification = {
     read: boolean;
 };
 
+export type Pagination = {
+    page: number;
+    limit: number;
+    itemCount: number;
+    hasMore: boolean;
+    nextPage: number | null;
+};
+
 export type NotificationsResponse = {
     success: boolean;
     data: Notification[];
-    unreadCount: number;
+    unreadCount?: number;
+    pagination?: Pagination;
     message?: string;
 };
 

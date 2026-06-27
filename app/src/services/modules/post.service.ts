@@ -1,7 +1,27 @@
 import { apiRequest } from "../api/apiRequest"
 
-export const getFeed = async () => {
-    return await apiRequest('/posts', 'GET')
+type GetFeedParams = {
+    page?: number;
+    limit?: number;
+    search?: string;
+    authorUsername?: string;
+}
+
+const toQueryString = (params: Record<string, string | number | undefined>) => {
+    const searchParams = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== "") {
+            searchParams.append(key, String(value));
+        }
+    });
+
+    const query = searchParams.toString();
+    return query ? `?${query}` : "";
+}
+
+export const getFeed = async ({ page = 1, limit = 10, search, authorUsername }: GetFeedParams = {}) => {
+    return await apiRequest(`/posts${toQueryString({ page, limit, search, authorUsername })}`, 'GET')
 }
 
 export const createPost = async (body: any) => {

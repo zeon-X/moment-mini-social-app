@@ -14,11 +14,13 @@ export const createPost = asyncHandler(async (req, res) => {
 export const getFeed = asyncHandler(async (req, res) => {
   const { page, limit } = getPaginationParams(req.query);
   const search = (req.query.search || req.query.q || "").trim();
+  const authorUsername = (req.query.authorUsername || "").trim();
 
   const feed = await postService.getGlobalFeed(req.user.id, {
     page,
     limit,
     search,
+    authorUsername,
   });
 
   res.status(200).json({
@@ -34,6 +36,7 @@ export const likePost = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     liked: result.liked,
+    likeCount: result.likeCount,
   });
 });
 
