@@ -34,6 +34,7 @@ const MAPPING = {
   "bubble.right.fill": "chat",
   "chevron.left.forwardslash.chevron.right": "code",
   "chevron.right": "chevron-right",
+  "xmark.circle.fill": "cancel",
   eye: "visibility",
   "eye.slash": "visibility-off",
 } as const satisfies Partial<IconMapping>;

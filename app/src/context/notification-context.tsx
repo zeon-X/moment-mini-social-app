@@ -271,7 +271,7 @@ export const NotificationProvider = ({
     const handleConnectError = (err: Error) => {
       setConnected(false);
       setLoading(false);
-      setError(err.message || "Unable to connect to notifications.");
+      console.warn("Unable to connect to live notifications.", err.message);
     };
 
     const handleNewNotification = (payload: NewNotificationPayload) => {

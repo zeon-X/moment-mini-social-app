@@ -1,4 +1,5 @@
 import { useAuth } from "@/context/auth-context";
+import { Ionicons } from "@expo/vector-icons";
 import moment from "moment";
 import React, { useState } from "react";
 import { TextInput, TouchableOpacity, View } from "react-native";
@@ -49,23 +50,28 @@ export function CommentsList({ comments, onAddComment }: CommentsListProps) {
           comments.map((comment) => (
             <View
               key={comment.id}
-              className="mb-3 pb-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+              className="mb-3 pb-3 border-b border-gray-100 dark:border-gray-700 last:border-b-0.5 flex-row gap-2 items-start"
             >
+              {/* Visual anchor for threaded replies */}
+              <Ionicons
+                name="return-down-forward"
+                size={14}
+                color=" #e5e7eb"
+                className="mt-1 "
+              />
               <View className="flex-row gap-2">
-                <Avatar name={comment.author} size="sm" />
+                <Avatar name={comment.author} size="xs" />
                 <View className="flex-1">
                   <View className="flex-row items-center gap-2">
-                    <ThemedText type="defaultSemiBold">
-                      {comment.author}
-                    </ThemedText>
+                    <ThemedText type="xsSemiBold">{comment.author}</ThemedText>
                     <ThemedText type="xs" className="text-gray-500">
                       @{comment.username}
                     </ThemedText>
                   </View>
-                  <ThemedText type="xs" className="text-gray-500 mt-0.5">
+                  <ThemedText type="xs" className="text-gray-200 mt-0.5">
                     {moment(comment.createdAt).fromNow()}
                   </ThemedText>
-                  <ThemedText type="default" className="mt-1">
+                  <ThemedText type="small" className="mt-1">
                     {comment.content}
                   </ThemedText>
                 </View>

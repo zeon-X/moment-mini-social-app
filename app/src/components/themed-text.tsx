@@ -11,6 +11,8 @@ export type ThemedTextProps = TextProps & {
     | "xs"
     | "title"
     | "defaultSemiBold"
+    | "smallSemiBold"
+    | "xsSemiBold"
     | "subtitle"
     | "link";
 };
@@ -33,6 +35,8 @@ export function ThemedText({
         type === "xs" ? styles.xs : undefined,
         type === "title" ? styles.title : undefined,
         type === "defaultSemiBold" ? styles.defaultSemiBold : undefined,
+        type === "smallSemiBold" ? styles.smallSemiBold : undefined,
+        type === "xsSemiBold" ? styles.xsSemiBold : undefined,
         type === "subtitle" ? styles.subtitle : undefined,
         type === "link" ? styles.link : undefined,
         style,
@@ -58,6 +62,16 @@ const styles = StyleSheet.create({
   defaultSemiBold: {
     fontSize: 16,
     lineHeight: 24,
+    fontWeight: "600",
+  },
+  smallSemiBold: {
+    fontSize: 14,
+    lineHeight: 16,
+    fontWeight: "600",
+  },
+  xsSemiBold: {
+    fontSize: 12,
+    lineHeight: 14,
     fontWeight: "600",
   },
   title: {

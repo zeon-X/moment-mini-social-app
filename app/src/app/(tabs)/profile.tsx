@@ -51,6 +51,9 @@ const ProfileTabScreen = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [user, setUser] = useState<UserProfile>(SAMPLE_USER);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [likingPostIds, setLikingPostIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
@@ -214,6 +217,9 @@ const ProfileTabScreen = () => {
   };
 
   const handleLike = async (postId: string) => {
+    if (likingPostIds.has(postId)) return;
+
+    setLikingPostIds((prev) => new Set(prev).add(postId));
     try {
       const data = await toggleLikeOnPost(postId);
 
@@ -236,6 +242,12 @@ const ProfileTabScreen = () => {
       await refreshProfileStats();
     } catch (error) {
       showErrorAlert(error, "Unable to update like.");
+    } finally {
+      setLikingPostIds((prev) => {
+        const next = new Set(prev);
+        next.delete(postId);
+        return next;
+      });
     }
   };
 
@@ -273,6 +285,9 @@ const ProfileTabScreen = () => {
     setExpandedPostId(expandedPostId === postId ? null : postId);
   };
 
+  const hasUserDetails = Boolean(user.name && user.username);
+  const shouldShowUserInfoLoader = !hasUserDetails;
+
   return (
     <ScreenLayout
       title="Profile"
@@ -305,24 +320,32 @@ const ProfileTabScreen = () => {
         }
         ListHeaderComponent={
           <>
-            <View className="items-center mb-4">
-              <Avatar name={user?.name} size="lg" />
-            </View>
+            {shouldShowUserInfoLoader ? (
+              <View className="items-center justify-center py-10 mb-4">
+                <ActivityIndicator color="#f04c00df" />
+              </View>
+            ) : (
+              <>
+                <View className="items-center mb-4">
+                  <Avatar name={user?.name} size="lg" />
+                </View>
 
-            <View className="items-center mb-4">
-              <ThemedText type="defaultSemiBold" className="text-xl mb-1">
-                {user?.name}
-              </ThemedText>
-              <ThemedText type="small" className="text-gray-500">
-                @{user?.username} {user?.email && "|"} {user?.email}
-              </ThemedText>
-            </View>
+                <View className="items-center mb-4">
+                  <ThemedText type="defaultSemiBold" className="text-xl mb-1">
+                    {user?.name}
+                  </ThemedText>
+                  <ThemedText type="small" className="text-gray-500">
+                    @{user?.username} {user?.email && "|"} {user?.email}
+                  </ThemedText>
+                </View>
 
-            <View className="flex-row gap-3 mb-8">
-              <StatCard value={user?.stats?.posts} label="Posts" />
-              <StatCard value={user?.stats?.comments} label="Comments" />
-              <StatCard value={user?.stats?.likes} label="Likes" />
-            </View>
+                <View className="flex-row gap-3 mb-8">
+                  <StatCard value={user?.stats?.posts} label="Posts" />
+                  <StatCard value={user?.stats?.comments} label="Comments" />
+                  <StatCard value={user?.stats?.likes} label="Likes" />
+                </View>
+              </>
+            )}
 
             <ThemedText type="defaultSemiBold" className="text-lg mb-4">
               My Posts
@@ -345,6 +368,7 @@ const ProfileTabScreen = () => {
           <PostCard
             post={item}
             isExpanded={expandedPostId === item.id}
+            isLikeLoading={likingPostIds.has(item.id)}
             onLike={handleLike}
             onToggleComments={handleToggleComments}
             onAddComment={handleAddComment}

@@ -1,7 +1,7 @@
 import React from "react";
 import { Text, View } from "react-native";
 
-type AvatarSize = "sm" | "md" | "lg";
+type AvatarSize = "xs" | "sm" | "md" | "lg";
 type AvatarProps = {
   name: string;
   size?: AvatarSize;
@@ -9,6 +9,10 @@ type AvatarProps = {
 };
 
 const sizeClasses: Record<AvatarSize, { container: string; text: string }> = {
+  xs: {
+    container: "w-6 h-6",
+    text: "text-xs",
+  },
   sm: {
     container: "w-10 h-10",
     text: "text-sm",

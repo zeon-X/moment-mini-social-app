@@ -2,6 +2,7 @@ import { ScreenLayout } from "@/components/screen-layout";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { type Comment } from "@/components/ui/comments-list";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import LoadingText from "@/components/ui/loading-text";
 import { PostCard, type Post } from "@/components/ui/post-card";
 import {
@@ -20,6 +21,8 @@ import {
   Platform,
   RefreshControl,
   TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 const PAGE_LIMIT = 10;
@@ -39,6 +42,9 @@ export default function HomeTabScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [likingPostIds, setLikingPostIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const paginationRef = useRef<Pagination | null>(null);
@@ -116,6 +122,9 @@ export default function HomeTabScreen() {
   }, [debouncedFilterText]);
 
   const handleLike = async (postId: string) => {
+    if (likingPostIds.has(postId)) return;
+
+    setLikingPostIds((prev) => new Set(prev).add(postId));
     try {
       const data = await toggleLikeOnPost(postId);
 
@@ -138,6 +147,12 @@ export default function HomeTabScreen() {
       );
     } catch (error) {
       showErrorAlert(error, "Unable to update like.");
+    } finally {
+      setLikingPostIds((prev) => {
+        const next = new Set(prev);
+        next.delete(postId);
+        return next;
+      });
     }
   };
 
@@ -200,13 +215,28 @@ export default function HomeTabScreen() {
             />
           }
           ListHeaderComponent={
-            <TextInput
-              placeholder="Search by username or name..."
-              placeholderTextColor="#999"
-              value={filterText}
-              onChangeText={setFilterText}
-              className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white px-4 py-3 rounded-lg mb-6 border border-gray-200 dark:border-gray-700"
-            />
+            <View className="mb-6">
+              <TextInput
+                placeholder="Search by username or name..."
+                placeholderTextColor="#999"
+                value={filterText}
+                onChangeText={setFilterText}
+                className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white pl-4 pr-12 py-3 rounded-lg border border-gray-200 dark:border-gray-700"
+              />
+              {filterText.length > 0 && (
+                <TouchableOpacity
+                  accessibilityLabel="Clear search"
+                  className="absolute right-3 top-0 bottom-0 justify-center"
+                  onPress={() => setFilterText("")}
+                >
+                  <IconSymbol
+                    size={22}
+                    name="xmark.circle.fill"
+                    color="#999"
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
           }
           ListEmptyComponent={
             isLoading ? (
@@ -228,6 +258,7 @@ export default function HomeTabScreen() {
             <PostCard
               post={item}
               isExpanded={expandedPostId === item.id}
+              isLikeLoading={likingPostIds.has(item.id)}
               onLike={handleLike}
               onToggleComments={handleToggleComments}
               onAddComment={handleAddComment}

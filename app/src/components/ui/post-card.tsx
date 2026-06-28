@@ -1,6 +1,7 @@
 import moment from "moment";
 import React from "react";
-import { TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Share, TouchableOpacity, View } from "react-native";
+import { showErrorAlert } from "@/utils/error-handler";
 import { ThemedText } from "../themed-text";
 import { ThemedView } from "../themed-view";
 import { Avatar } from "./avatar";
@@ -21,6 +22,7 @@ export type Post = {
 type PostCardProps = {
   post: Post;
   isExpanded?: boolean;
+  isLikeLoading?: boolean;
   onLike?: (postId: string) => void;
   onToggleComments?: (postId: string) => void;
   onAddComment?: (postId: string, comment: Comment) => void;
@@ -29,10 +31,22 @@ type PostCardProps = {
 export function PostCard({
   post,
   isExpanded = false,
+  isLikeLoading = false,
   onLike,
   onToggleComments,
   onAddComment,
 }: PostCardProps) {
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        title: `${post.author}'s quote`,
+        message: `"${post.content}"\n\n- ${post.author} (@${post.username})`,
+      });
+    } catch (error) {
+      showErrorAlert(error, "Unable to share post.");
+    }
+  };
+
   return (
     <ThemedView className="mb-4 rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
       {/* Header */}
@@ -57,12 +71,17 @@ export function PostCard({
         <TouchableOpacity
           className="flex-row items-center gap-2"
           onPress={() => onLike?.(post.id)}
+          disabled={isLikeLoading}
         >
-          <IconSymbol
-            size={20}
-            name="heart.fill"
-            color={post.liked ? "#FF6B6B" : "#999"}
-          />
+          {isLikeLoading ? (
+            <ActivityIndicator size="small" color="#f04c00df" />
+          ) : (
+            <IconSymbol
+              size={20}
+              name="heart.fill"
+              color={post.liked ? "#FF6B6B" : "#999"}
+            />
+          )}
           <ThemedText
             type="small"
             className={`font-medium ${
@@ -85,7 +104,10 @@ export function PostCard({
         </TouchableOpacity>
 
         {/* Share Button */}
-        <TouchableOpacity className="flex-row items-center gap-2">
+        <TouchableOpacity
+          className="flex-row items-center gap-2"
+          onPress={handleShare}
+        >
           <IconSymbol size={20} name="paperplane.fill" color="#999" />
           <ThemedText type="small" className="font-medium text-gray-500">
             Share

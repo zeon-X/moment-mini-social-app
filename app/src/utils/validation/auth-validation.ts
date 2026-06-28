@@ -12,8 +12,8 @@ export function validateRegisterForm(formData: RegisterFormData): RegisterFormEr
     if (!formData.name.trim()) newErrors.name = "Name is required.";
 
     if (!formData.age.trim()) newErrors.age = "Age is required.";
-    // else if (!/^\d+$/.test(formData.age.trim()))
-    //     newErrors.age = "Age must be a number.";
+    else if (!/^\d+$/.test(formData.age.trim()))
+        newErrors.age = "Age must be a number.";
     else if (Number(formData.age.trim()) <= 0)
         newErrors.age = "Age must be greater than 0.";
 
