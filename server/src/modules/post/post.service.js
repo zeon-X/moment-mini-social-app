@@ -5,10 +5,12 @@ import { getPaginationMeta } from "../../utils/pagination.js";
 import { enqueuePostNotification } from "../notification/notification.service.js";
 
 export const createPost = async (userId, content) => {
+  const trimmedContent = content.trim();
+
   return prisma.$transaction(async (tx) => {
     const post = await tx.post.create({
       data: {
-        content,
+        content: trimmedContent,
         authorId: userId,
       },
     });
@@ -158,6 +160,8 @@ export const toggleLike = async (userId, postId) => {
 };
 
 export const addComment = async (userId, postId, content) => {
+  const trimmedContent = content.trim();
+
   // Check if post exists
   const post = await prisma.post.findUnique({
     where: { id: postId },
@@ -170,7 +174,7 @@ export const addComment = async (userId, postId, content) => {
   const comment = await prisma.$transaction(async (tx) => {
     const createdComment = await tx.comment.create({
       data: {
-        content,
+        content: trimmedContent,
         userId,
         postId,
       },
