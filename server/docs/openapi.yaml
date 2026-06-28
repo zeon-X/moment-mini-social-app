@@ -1,14 +1,24 @@
 openapi: 3.0.3
 info:
-  title: Mini Social Feed API
+  title: Moment Mini Social Feed API
   version: 1.0.0
-  description: Backend API documentation for Mini Social Feed App
+  description: REST API documentation for the Moment Mini Social Feed App backend.
 
 servers:
   - url: http://localhost:3008
-    description: Local Development
-  - url: https://your-render-url.onrender.com
-    description: Production
+    description: Local development
+
+tags:
+  - name: Health
+    description: Server and database health checks
+  - name: Auth
+    description: Authentication and session APIs
+  - name: Users
+    description: Community and profile APIs
+  - name: Posts
+    description: Feed, post, like, and comment APIs
+  - name: Notifications
+    description: Notification list, unread count, and read state APIs
 
 components:
   securitySchemes:
@@ -16,232 +26,471 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
   schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Invalid credentials
+
+    SuccessMessageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        itemCount:
+          type: integer
+          example: 10
+        hasMore:
+          type: boolean
+          example: true
+        nextPage:
+          type: integer
+          nullable: true
+          example: 2
+
     User:
       type: object
       properties:
         id:
           type: string
+          format: uuid
         name:
           type: string
+          example: Jane Doe
+        age:
+          type: integer
+          nullable: true
+          example: 24
         email:
+          type: string
+          format: email
+          example: jane@example.com
+        username:
+          type: string
+          example: janedoe
+
+    CommunityMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
           type: string
         username:
           type: string
+        age:
+          type: integer
+          nullable: true
+        posts:
+          type: integer
+
+    UserProfile:
+      type: object
+      properties:
+        name:
+          type: string
+        age:
+          type: integer
+          nullable: true
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        stats:
+          type: object
+          properties:
+            posts:
+              type: integer
+            comments:
+              type: integer
+            likes:
+              type: integer
+
     Comment:
       type: object
       properties:
         id:
           type: string
+          format: uuid
         author:
           type: string
+          example: Jane Doe
         username:
           type: string
+          example: janedoe
         content:
           type: string
+          example: Nice post!
         createdAt:
           type: string
           format: date-time
+
     Post:
       type: object
       properties:
         id:
           type: string
+          format: uuid
         author:
           type: string
+          example: Jane Doe
         username:
           type: string
+          example: janedoe
         content:
           type: string
+          maxLength: 280
+          example: Hello from Moment!
         createdAt:
           type: string
           format: date-time
         likes:
           type: integer
+          example: 3
         liked:
           type: boolean
+          example: false
         comments:
           type: array
           items:
             $ref: "#/components/schemas/Comment"
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [like, comment]
+          example: like
+        user:
+          type: object
+          properties:
+            name:
+              type: string
+              example: John Smith
+            username:
+              type: string
+              example: johnsmith
+        postPreview:
+          type: string
+          example: Hello from Moment!
+        timestamp:
+          type: string
+          format: date-time
+        read:
+          type: boolean
+          example: false
+
+    AuthRequestSignup:
+      type: object
+      required: [name, email, username, password]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          example: Jane Doe
+        age:
+          type: integer
+          nullable: true
+          example: 24
+        email:
+          type: string
+          format: email
+          example: jane@example.com
+        username:
+          type: string
+          minLength: 6
+          example: janedoe
+        password:
+          type: string
+          minLength: 6
+          example: password123
+
+    AuthRequestLogin:
+      type: object
+      required: [identifier, password]
+      properties:
+        identifier:
+          type: string
+          description: Email or username.
+          example: janedoe
+        password:
+          type: string
+          minLength: 6
+          example: password123
+
     AuthResponse:
       type: object
       properties:
         success:
           type: boolean
+          example: true
         token:
           type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         data:
           $ref: "#/components/schemas/User"
 
-security:
-  - bearerAuth: []
+    CreatePostRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 280
+          example: Hello from Moment!
 
-tags:
-  - name: Auth
-  - name: Users
-  - name: Posts
-  - name: Notifications
+    CommentRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 280
+          example: Nice post!
+
+    FcmTokenRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          example: fcm-device-token
+
+    PostListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Post"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+    NotificationListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+
+  responses:
+    Unauthorized:
+      description: Missing, invalid, or expired bearer token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ValidationError:
+      description: Request validation failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
 
 paths:
-  # Auth Module
+  /health:
+    get:
+      tags: [Health]
+      summary: Check API health
+      security: []
+      responses:
+        "200":
+          description: API is reachable.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: OK
+
+  /health/db:
+    get:
+      tags: [Health]
+      summary: Check database connection
+      security: []
+      responses:
+        "200":
+          description: Database is connected.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: DB Connected
+        "503":
+          description: Database is not connected.
+
   /api/v1/auth/signup:
     post:
       tags: [Auth]
-      summary: Register new user
+      summary: Register a new user
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [name, email, username, password]
-              properties:
-                name:
-                  type: string
-                age:
-                  type: integer
-                email:
-                  type: string
-                username:
-                  type: string
-                password:
-                  type: string
+              $ref: "#/components/schemas/AuthRequestSignup"
       responses:
-        201:
-          description: User created successfully
-  /api/v1/auth/login:
-    post:
-      tags: [Auth]
-      summary: Login using email or username
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [identifier, password]
-              properties:
-                identifier:
-                  type: string
-                password:
-                  type: string
-      responses:
-        200:
-          description: Login successful
+        "201":
+          description: User created successfully.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuthResponse"
-  /api/v1/auth/me:
-    get:
-      tags: [Auth]
-      summary: Get current logged-in user
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: Current user info
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-  /api/v1/auth/fcm-token:
+        "400":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/auth/login:
     post:
       tags: [Auth]
-      summary: Save FCM token for notifications
-      security:
-        - bearerAuth: []
+      summary: Login with email or username
+      security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [token]
-              properties:
-                token:
-                  type: string
+              $ref: "#/components/schemas/AuthRequestLogin"
       responses:
-        200:
-          description: Token saved successfully
+        "200":
+          description: Login successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get the current authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user info.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/auth/check-username:
     get:
       tags: [Auth]
-      summary: Check if username is available
+      summary: Check username availability
+      security: []
       parameters:
         - name: username
           in: query
           required: true
           schema:
             type: string
+            minLength: 6
+            maxLength: 20
+            pattern: "^[a-zA-Z0-9_]+$"
       responses:
-        200:
-          description: Username check result
-
-  # User Module
-  /api/v1/users:
-    get:
-      tags: [Users]
-      summary: Get community members
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: List of community members
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/User"
-  /api/v1/users/{username}:
-    get:
-      tags: [Users]
-      summary: Get user profile
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: username
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: User profile data
+        "200":
+          description: Username availability result.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  name:
-                    type: string
-                  age:
-                    type: integer
-                  email:
-                    type: string
-                  username:
-                    type: string
-                  stats:
-                    type: object
-                    properties:
-                      posts:
-                        type: integer
-                      comments:
-                        type: integer
-                      likes:
-                        type: integer
-                  posts:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Post"
+                  success:
+                    type: boolean
+                    example: true
+                  available:
+                    type: boolean
+                    example: true
+        "400":
+          $ref: "#/components/responses/ValidationError"
 
-  # Post Module
-  /api/v1/posts:
+  /api/v1/auth/fcm-token:
+    post:
+      tags: [Auth]
+      summary: Save the user's Firebase device token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FcmTokenRequest"
+      responses:
+        "200":
+          description: Token saved successfully.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessMessageResponse"
+              example:
+                success: true
+                message: FCM token saved
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/users:
     get:
-      tags: [Posts]
-      summary: Get global feed
+      tags: [Users]
+      summary: Get paginated community members
       security:
         - bearerAuth: []
       parameters:
@@ -249,22 +498,113 @@ paths:
           in: query
           schema:
             type: integer
+            minimum: 1
+            default: 1
         - name: limit
           in: query
           schema:
             type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
       responses:
-        200:
-          description: List of posts
+        "200":
+          description: Community members.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Post"
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CommunityMember"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/users/{username}:
+    get:
+      tags: [Users]
+      summary: Get user profile by username
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User profile data.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/v1/posts:
+    get:
+      tags: [Posts]
+      summary: Get the global feed
+      description: Returns posts ordered newest first. Use `authorUsername` for an exact username filter or `search`/`q` to search author name and username.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+        - name: authorUsername
+          in: query
+          schema:
+            type: string
+          description: Exact username filter.
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search author name or username.
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Alias for `search`.
+      responses:
+        "200":
+          description: Paginated list of posts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
     post:
       tags: [Posts]
-      summary: Create new post
+      summary: Create a text-only post
       security:
         - bearerAuth: []
       requestBody:
@@ -272,18 +612,29 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [content]
-              properties:
-                content:
-                  type: string
+              $ref: "#/components/schemas/CreatePostRequest"
       responses:
-        201:
-          description: Post created successfully
+        "201":
+          description: Post created successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/posts/{id}/like:
     post:
       tags: [Posts]
-      summary: Toggle like on post
+      summary: Like or unlike a post
       security:
         - bearerAuth: []
       parameters:
@@ -292,13 +643,33 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       responses:
-        200:
-          description: Like toggled successfully
+        "200":
+          description: Like state after toggle.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  liked:
+                    type: boolean
+                    example: true
+                  likeCount:
+                    type: integer
+                    example: 4
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/posts/{id}/comment:
     post:
       tags: [Posts]
-      summary: Add comment to post
+      summary: Add a comment to a post
       security:
         - bearerAuth: []
       parameters:
@@ -307,51 +678,63 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [content]
-              properties:
-                content:
-                  type: string
+              $ref: "#/components/schemas/CommentRequest"
       responses:
-        201:
-          description: Comment added successfully
-
-  # Notification Module
-  /api/v1/notifications:
-    get:
-      tags: [Notifications]
-      summary: Get user notifications
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: List of notifications
+        "201":
+          description: Comment added successfully.
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Comment"
-  /api/v1/notifications/{id}/read:
-    patch:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/Comment"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/notifications:
+    get:
       tags: [Notifications]
-      summary: Mark notification as read
+      summary: Get paginated notifications for the current user
       security:
         - bearerAuth: []
       parameters:
-        - name: id
-          in: path
-          required: true
+        - name: page
+          in: query
           schema:
-            type: string
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
       responses:
-        200:
-          description: Notification marked as read
+        "200":
+          description: Paginated notifications.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /api/v1/notifications/unread-count:
     get:
       tags: [Notifications]
@@ -359,5 +742,53 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        200:
-          description: Unread notification count
+        "200":
+          description: Unread notification count.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  unreadCount:
+                    type: integer
+                    example: 3
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notifications/{id}/read:
+    patch:
+      tags: [Notifications]
+      summary: Mark a notification as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Notification marked as read.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Notification marked as read
+                  unreadCount:
+                    type: integer
+                    example: 2
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"

@@ -9,8 +9,9 @@ Moment is a lightweight social feed application built for the Mini Social Feed A
 ## Submission Links
 
 - GitHub repository: [https://github.com/zeon-X/moment-mini-social-app](https://github.com/zeon-X/moment-mini-social-app)
-- Android APK: [Download from Google Drive](https://drive.google.com/file/d/1DeEwpxElQ5AtMLS_qUWuLluNR44_9xWA/view?usp=drive_link)
+- Android APK: [Download from Google Drive](https://drive.google.com/file/d/1HAAa2jNntYSwrlITG9NJoZM49IqvIABt/view?usp=drive_link)
 - Backend API docs after running locally: [http://localhost:3008/api/docs](http://localhost:3008/api/docs)
+- Backend API docs after running live: [https://moment-server-extq.onrender.com/api/docs/](https://moment-server-extq.onrender.com/api/docs/)
 
 ## Project Structure
 
@@ -137,7 +138,6 @@ The API runs at `http://localhost:3008` by default. Swagger docs are available a
 5. Configure Firebase files for native builds.
 
    The Expo config expects Firebase files through environment values:
-
    - `GOOGLE_SERVICES_JSON` for Android
    - `GOOGLE_SERVICE_INFO_PLIST` for iOS
 
@@ -174,24 +174,24 @@ All protected endpoints require:
 Authorization: Bearer <jwt-token>
 ```
 
-| Method | Endpoint | Auth | Description |
-| --- | --- | --- | --- |
-| `POST` | `/api/v1/auth/signup` | No | Register a user with name, email, username, password, and optional age |
-| `POST` | `/api/v1/auth/login` | No | Login with email/username and password |
-| `GET` | `/api/v1/auth/me` | Yes | Get current authenticated user |
-| `GET` | `/api/v1/auth/check-username?username=value` | No | Check username availability |
-| `POST` | `/api/v1/auth/fcm-token` | Yes | Save the user's Firebase device token |
-| `GET` | `/api/v1/posts?page=1&limit=10` | Yes | Get paginated newest-first feed |
-| `GET` | `/api/v1/posts?authorUsername=username` | Yes | Filter feed by exact username |
-| `GET` | `/api/v1/posts?search=query` | Yes | Search feed authors by name or username |
-| `POST` | `/api/v1/posts` | Yes | Create a text-only post |
-| `POST` | `/api/v1/posts/:id/like` | Yes | Like or unlike a post |
-| `POST` | `/api/v1/posts/:id/comment` | Yes | Add a comment to a post |
-| `GET` | `/api/v1/users` | Yes | List community members |
-| `GET` | `/api/v1/users/:username` | Yes | Get user profile with stats and posts |
-| `GET` | `/api/v1/notifications` | Yes | Get user notifications |
-| `GET` | `/api/v1/notifications/unread-count` | Yes | Get unread notification count |
-| `PATCH` | `/api/v1/notifications/:id/read` | Yes | Mark a notification as read |
+| Method  | Endpoint                                     | Auth | Description                                                            |
+| ------- | -------------------------------------------- | ---- | ---------------------------------------------------------------------- |
+| `POST`  | `/api/v1/auth/signup`                        | No   | Register a user with name, email, username, password, and optional age |
+| `POST`  | `/api/v1/auth/login`                         | No   | Login with email/username and password                                 |
+| `GET`   | `/api/v1/auth/me`                            | Yes  | Get current authenticated user                                         |
+| `GET`   | `/api/v1/auth/check-username?username=value` | No   | Check username availability                                            |
+| `POST`  | `/api/v1/auth/fcm-token`                     | Yes  | Save the user's Firebase device token                                  |
+| `GET`   | `/api/v1/posts?page=1&limit=10`              | Yes  | Get paginated newest-first feed                                        |
+| `GET`   | `/api/v1/posts?authorUsername=username`      | Yes  | Filter feed by exact username                                          |
+| `GET`   | `/api/v1/posts?search=query`                 | Yes  | Search feed authors by name or username                                |
+| `POST`  | `/api/v1/posts`                              | Yes  | Create a text-only post                                                |
+| `POST`  | `/api/v1/posts/:id/like`                     | Yes  | Like or unlike a post                                                  |
+| `POST`  | `/api/v1/posts/:id/comment`                  | Yes  | Add a comment to a post                                                |
+| `GET`   | `/api/v1/users`                              | Yes  | List community members                                                 |
+| `GET`   | `/api/v1/users/:username`                    | Yes  | Get user profile with stats and posts                                  |
+| `GET`   | `/api/v1/notifications`                      | Yes  | Get user notifications                                                 |
+| `GET`   | `/api/v1/notifications/unread-count`         | Yes  | Get unread notification count                                          |
+| `PATCH` | `/api/v1/notifications/:id/read`             | Yes  | Mark a notification as read                                            |
 
 ## Example Requests
 
@@ -239,6 +239,34 @@ curl -X POST http://localhost:3008/api/v1/posts/<post-id>/comment \
 - Missing posts return a `404`.
 - Express global error handling returns consistent API errors.
 - Basic rate limiting is enabled to reduce abuse.
+
+## Tests and Lint Verification
+
+Backend checks:
+
+```sh
+cd server
+npx prisma validate
+npm run prisma:generate
+npm test
+```
+
+Mobile checks:
+
+```sh
+cd app
+npm run lint
+npx tsc --noEmit
+```
+
+Current status:
+
+- OpenAPI YAML parses successfully.
+- Prisma schema validation passes.
+- Prisma client generation passes.
+- Mobile lint passes.
+- Mobile TypeScript type check passes.
+- Backend `npm test` is still a placeholder and exits with `Error: no test specified`.
 
 ## Screenshots
 
